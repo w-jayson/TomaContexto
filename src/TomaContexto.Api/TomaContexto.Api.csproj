@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>341420ec-f2bb-43ab-b655-7fd30bb5f8bc</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.2" />
+    <PackageReference Include="Scalar.AspNetCore" Version="2.17.12" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TomaContexto.Application\TomaContexto.Application.csproj" />
+    <ProjectReference Include="..\TomaContexto.Infrastructure\TomaContexto.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>
