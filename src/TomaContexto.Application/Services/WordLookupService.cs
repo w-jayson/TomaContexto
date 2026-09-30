@@ -31,14 +31,33 @@ public class WordLookupService : IWordLookupService
             return MapToResponseDto(cachedWord);
         }
 
-        // 2. Query external Groq LLM as fallback (Cache miss)
+        // 2. Search for existing sentences in repository that already contain the term
+        var existingSentences = await _wordRepository.FindSentencesContainingTermAsync(normalizedTerm, cancellationToken);
+
+        // 3. Query external Groq LLM as fallback (Cache miss)
         var groqResult = await _groqService.QueryTermAsync(normalizedTerm, cancellationToken);
         if (groqResult is null)
         {
             return null;
         }
 
-        // 3. Cache the newly discovered word in local repository for future instant lookups
+        // 4. Combine existing database sentences with new sentences from Groq (avoiding duplicates)
+        var resolvedSentences = new List<Sentence>(existingSentences);
+        foreach (var s in groqResult.ExampleSentences)
+        {
+            var trimmedEn = s.En.Trim();
+            if (!resolvedSentences.Any(existing => existing.SentenceEn.Trim().Equals(trimmedEn, StringComparison.OrdinalIgnoreCase)))
+            {
+                resolvedSentences.Add(new Sentence
+                {
+                    Id = Guid.NewGuid(),
+                    SentenceEn = trimmedEn,
+                    SentencePt = s.Pt.Trim()
+                });
+            }
+        }
+
+        // 5. Cache the newly discovered word in local repository for future instant lookups
         var wordId = Guid.NewGuid();
         var wordEntity = new Word
         {
@@ -55,20 +74,12 @@ public class WordLookupService : IWordLookupService
                     Translation = t
                 }))
                 .ToList(),
-            Sentences = groqResult.ExampleSentences
-                .Select(s => new WordSentence
-                {
-                    Id = Guid.NewGuid(),
-                    WordId = wordId,
-                    SentenceEn = s.En,
-                    SentencePt = s.Pt
-                })
-                .ToList()
+            Sentences = resolvedSentences
         };
 
         await _wordRepository.AddAsync(wordEntity, cancellationToken);
 
-        return groqResult;
+        return MapToResponseDto(wordEntity);
     }
 
     private static WordLookupResponseDto MapToResponseDto(Word word)

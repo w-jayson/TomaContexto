@@ -33,6 +33,25 @@ public class InMemoryWordRepository : IWordRepository
         return Task.FromResult(word);
     }
 
+    public Task<List<Sentence>> FindSentencesContainingTermAsync(string term, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(term))
+        {
+            return Task.FromResult(new List<Sentence>());
+        }
+
+        var cleanTerm = term.Trim().ToLowerInvariant();
+
+        var matched = _words.Values
+            .SelectMany(w => w.Sentences)
+            .Where(s => s.SentenceEn.ToLowerInvariant().Contains(cleanTerm))
+            .DistinctBy(s => s.SentenceEn.Trim().ToLowerInvariant())
+            .Take(10)
+            .ToList();
+
+        return Task.FromResult(matched);
+    }
+
     public Task AddAsync(Word word, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(word);

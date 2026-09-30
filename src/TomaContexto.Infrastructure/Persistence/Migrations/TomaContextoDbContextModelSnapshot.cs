@@ -22,6 +22,30 @@ namespace TomaContexto.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("TomaContexto.Domain.Entities.Sentence", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SentenceEn")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("SentencePt")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SentenceEn");
+
+                    b.ToTable("Sentences");
+                });
+
             modelBuilder.Entity("TomaContexto.Domain.Entities.Word", b =>
                 {
                     b.Property<Guid>("Id")
@@ -46,30 +70,6 @@ namespace TomaContexto.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("Words");
-                });
-
-            modelBuilder.Entity("TomaContexto.Domain.Entities.WordSentence", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("SentenceEn")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("SentencePt")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("WordId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("WordId");
-
-                    b.ToTable("WordSentences");
                 });
 
             modelBuilder.Entity("TomaContexto.Domain.Entities.WordTranslation", b =>
@@ -98,13 +98,19 @@ namespace TomaContexto.Infrastructure.Persistence.Migrations
                     b.ToTable("WordTranslations");
                 });
 
-            modelBuilder.Entity("TomaContexto.Domain.Entities.WordSentence", b =>
+            modelBuilder.Entity("WordSentences", b =>
                 {
-                    b.HasOne("TomaContexto.Domain.Entities.Word", null)
-                        .WithMany("Sentences")
-                        .HasForeignKey("WordId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                    b.Property<Guid>("SentenceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("WordId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("SentenceId", "WordId");
+
+                    b.HasIndex("WordId");
+
+                    b.ToTable("WordSentences");
                 });
 
             modelBuilder.Entity("TomaContexto.Domain.Entities.WordTranslation", b =>
@@ -116,10 +122,23 @@ namespace TomaContexto.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("WordSentences", b =>
+                {
+                    b.HasOne("TomaContexto.Domain.Entities.Sentence", null)
+                        .WithMany()
+                        .HasForeignKey("SentenceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("TomaContexto.Domain.Entities.Word", null)
+                        .WithMany()
+                        .HasForeignKey("WordId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("TomaContexto.Domain.Entities.Word", b =>
                 {
-                    b.Navigation("Sentences");
-
                     b.Navigation("Translations");
                 });
 #pragma warning restore 612, 618

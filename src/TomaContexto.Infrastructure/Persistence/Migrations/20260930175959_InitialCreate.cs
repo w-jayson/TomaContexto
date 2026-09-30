@@ -12,6 +12,20 @@ namespace TomaContexto.Infrastructure.Persistence.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
+                name: "Sentences",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    SentenceEn = table.Column<string>(type: "text", nullable: false),
+                    SentencePt = table.Column<string>(type: "text", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Sentences", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Words",
                 columns: table => new
                 {
@@ -29,14 +43,18 @@ namespace TomaContexto.Infrastructure.Persistence.Migrations
                 name: "WordSentences",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    WordId = table.Column<Guid>(type: "uuid", nullable: false),
-                    SentenceEn = table.Column<string>(type: "text", nullable: false),
-                    SentencePt = table.Column<string>(type: "text", nullable: false)
+                    SentenceId = table.Column<Guid>(type: "uuid", nullable: false),
+                    WordId = table.Column<Guid>(type: "uuid", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_WordSentences", x => x.Id);
+                    table.PrimaryKey("PK_WordSentences", x => new { x.SentenceId, x.WordId });
+                    table.ForeignKey(
+                        name: "FK_WordSentences_Sentences_SentenceId",
+                        column: x => x.SentenceId,
+                        principalTable: "Sentences",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_WordSentences_Words_WordId",
                         column: x => x.WordId,
@@ -66,6 +84,11 @@ namespace TomaContexto.Infrastructure.Persistence.Migrations
                 });
 
             migrationBuilder.CreateIndex(
+                name: "IX_Sentences_SentenceEn",
+                table: "Sentences",
+                column: "SentenceEn");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Words_Term",
                 table: "Words",
                 column: "Term",
@@ -90,6 +113,9 @@ namespace TomaContexto.Infrastructure.Persistence.Migrations
 
             migrationBuilder.DropTable(
                 name: "WordTranslations");
+
+            migrationBuilder.DropTable(
+                name: "Sentences");
 
             migrationBuilder.DropTable(
                 name: "Words");

@@ -19,19 +19,17 @@ public static class WordSeedData
                 new() { Id = Guid.NewGuid(), WordId = disbeliefId, PartOfSpeech = "Idiom", Translation = "em choque" },
                 new() { Id = Guid.NewGuid(), WordId = disbeliefId, PartOfSpeech = "Adverb", Translation = "incrédulo" }
             },
-            Sentences = new List<WordSentence>
+            Sentences = new List<Sentence>
             {
                 new()
                 {
                     Id = Guid.NewGuid(),
-                    WordId = disbeliefId,
                     SentenceEn = "She stared at the test results in disbelief.",
                     SentencePt = "Ela olhou para os resultados do teste com descrença."
                 },
                 new()
                 {
                     Id = Guid.NewGuid(),
-                    WordId = disbeliefId,
                     SentenceEn = "He shook his head in disbelief when he heard the news.",
                     SentencePt = "Ele balançou a cabeça incrédulo quando ouviu a notícia."
                 }
@@ -50,19 +48,17 @@ public static class WordSeedData
                 new() { Id = Guid.NewGuid(), WordId = runOutOfId, PartOfSpeech = "Phrasal Verb", Translation = "ficar sem" },
                 new() { Id = Guid.NewGuid(), WordId = runOutOfId, PartOfSpeech = "Phrasal Verb", Translation = "esgotar" }
             },
-            Sentences = new List<WordSentence>
+            Sentences = new List<Sentence>
             {
                 new()
                 {
                     Id = Guid.NewGuid(),
-                    WordId = runOutOfId,
                     SentenceEn = "We have run out of coffee, so I need to go to the grocery store.",
                     SentencePt = "Ficamos sem café, então preciso ir ao supermercado."
                 },
                 new()
                 {
                     Id = Guid.NewGuid(),
-                    WordId = runOutOfId,
                     SentenceEn = "The car stopped because we ran out of gas.",
                     SentencePt = "O carro parou porque ficamos sem gasolina."
                 }
@@ -82,19 +78,17 @@ public static class WordSeedData
                 new() { Id = Guid.NewGuid(), WordId = breakthroughId, PartOfSpeech = "Noun", Translation = "descoberta importante" },
                 new() { Id = Guid.NewGuid(), WordId = breakthroughId, PartOfSpeech = "Noun", Translation = "conquista" }
             },
-            Sentences = new List<WordSentence>
+            Sentences = new List<Sentence>
             {
                 new()
                 {
                     Id = Guid.NewGuid(),
-                    WordId = breakthroughId,
                     SentenceEn = "Scientists made a major breakthrough in cancer research.",
                     SentencePt = "Os cientistas fizeram um grande avanço na pesquisa do câncer."
                 },
                 new()
                 {
                     Id = Guid.NewGuid(),
-                    WordId = breakthroughId,
                     SentenceEn = "This discovery is seen as a historic breakthrough.",
                     SentencePt = "Esta descoberta é vista como uma conquista histórica."
                 }

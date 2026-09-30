@@ -7,5 +7,5 @@ public class Word
     public string? Phonetic { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public ICollection<WordTranslation> Translations { get; set; } = new List<WordTranslation>();
-    public ICollection<WordSentence> Sentences { get; set; } = new List<WordSentence>();
+    public ICollection<Sentence> Sentences { get; set; } = new List<Sentence>();
 }

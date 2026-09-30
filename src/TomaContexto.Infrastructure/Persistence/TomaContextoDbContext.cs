@@ -11,7 +11,7 @@ public class TomaContextoDbContext : DbContext
 
     public DbSet<Word> Words => Set<Word>();
     public DbSet<WordTranslation> WordTranslations => Set<WordTranslation>();
-    public DbSet<WordSentence> WordSentences => Set<WordSentence>();
+    public DbSet<Sentence> Sentences => Set<Sentence>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -33,9 +33,11 @@ public class TomaContextoDbContext : DbContext
                   .OnDelete(DeleteBehavior.Cascade);
 
             entity.HasMany(w => w.Sentences)
-                  .WithOne()
-                  .HasForeignKey(s => s.WordId)
-                  .OnDelete(DeleteBehavior.Cascade);
+                  .WithMany(s => s.Words)
+                  .UsingEntity<Dictionary<string, object>>(
+                      "WordSentences",
+                      j => j.HasOne<Sentence>().WithMany().HasForeignKey("SentenceId").OnDelete(DeleteBehavior.Cascade),
+                      j => j.HasOne<Word>().WithMany().HasForeignKey("WordId").OnDelete(DeleteBehavior.Cascade));
         });
 
         modelBuilder.Entity<WordTranslation>(entity =>
@@ -45,11 +47,14 @@ public class TomaContextoDbContext : DbContext
             entity.Property(t => t.Translation).IsRequired().HasMaxLength(250);
         });
 
-        modelBuilder.Entity<WordSentence>(entity =>
+        modelBuilder.Entity<Sentence>(entity =>
         {
             entity.HasKey(s => s.Id);
             entity.Property(s => s.SentenceEn).IsRequired();
             entity.Property(s => s.SentencePt).IsRequired();
+            entity.Property(s => s.CreatedAt).IsRequired();
+
+            entity.HasIndex(s => s.SentenceEn);
         });
     }
 }

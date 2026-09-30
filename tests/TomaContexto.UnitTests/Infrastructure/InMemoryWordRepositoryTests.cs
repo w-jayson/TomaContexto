@@ -22,9 +22,9 @@ public class InMemoryWordRepositoryTests
             {
                 new() { Id = Guid.NewGuid(), WordId = wordId, PartOfSpeech = "Noun", Translation = "acaso feliz" }
             },
-            Sentences = new List<WordSentence>
+            Sentences = new List<Sentence>
             {
-                new() { Id = Guid.NewGuid(), WordId = wordId, SentenceEn = "Finding this book was pure serendipity.", SentencePt = "Encontrar este livro foi puro acaso feliz." }
+                new() { Id = Guid.NewGuid(), SentenceEn = "Finding this book was pure serendipity.", SentencePt = "Encontrar este livro foi puro acaso feliz." }
             }
         };
 
@@ -75,5 +75,20 @@ public class InMemoryWordRepositoryTests
         // Assert
         result.ShouldNotBeNull();
         result.Term.ShouldBe("breakthrough");
+    }
+
+    [Fact]
+    public async Task FindSentencesContainingTermAsync_ShouldReturnMatchingSentencesFromPreloadedSeeds()
+    {
+        // Arrange
+        var repository = new InMemoryWordRepository(populateSeeds: true);
+
+        // Act
+        // "stared" appears in "She stared at the test results in disbelief."
+        var matches = await repository.FindSentencesContainingTermAsync("stared");
+
+        // Assert
+        matches.ShouldNotBeEmpty();
+        matches.ShouldContain(s => s.SentenceEn.Contains("stared"));
     }
 }

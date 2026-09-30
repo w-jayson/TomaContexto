@@ -56,9 +56,9 @@ public class WordLookupServiceTests
                 new() { Id = Guid.NewGuid(), WordId = testWordId, PartOfSpeech = "Noun", Translation = "multiplicidade de sentidos" },
                 new() { Id = Guid.NewGuid(), WordId = testWordId, PartOfSpeech = "Adjective", Translation = "polissêmico" }
             },
-            Sentences = new List<WordSentence>
+            Sentences = new List<Sentence>
             {
-                new() { Id = Guid.NewGuid(), WordId = testWordId, SentenceEn = "Polysemy is common in English.", SentencePt = "Polissemia é comum em inglês." }
+                new() { Id = Guid.NewGuid(), SentenceEn = "Polysemy is common in English.", SentencePt = "Polissemia é comum em inglês." }
             }
         };
 
@@ -152,4 +152,43 @@ public class WordLookupServiceTests
         result.ShouldBeNull();
         _fakeGroq.CallCount.ShouldBe(1);
     }
+
+    [Fact]
+    public async Task LookupTermAsync_WhenExistingSentencesContainTerm_ShouldAutomaticallyLinkAndMergeThem()
+    {
+        // Arrange
+        // The seeds contain the sentence: "She stared at the test results in disbelief." (under 'in disbelief')
+        // Now suppose the user looks up "stared", which is not yet cached.
+        var groqDto = new WordLookupResponseDto(
+            "stared",
+            "/stɛərd/",
+            new List<TranslationGroupDto>
+            {
+                new("Verb", new List<string> { "olhou fixamente", "encarou" })
+            },
+            new List<SentencePairDto>
+            {
+                new("He stared into the distance thinking about his future.", "Ele olhou fixamente para a distância pensando no seu futuro.")
+            }
+        );
+
+        _fakeGroq.Handler = term => Task.FromResult<WordLookupResponseDto?>(groqDto);
+
+        // Act
+        var result = await _service.LookupTermAsync("stared");
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.Term.ShouldBe("stared");
+        // Result should include BOTH the existing sentence found in the DB and the new sentence from Groq!
+        result.ExampleSentences.Count.ShouldBe(2);
+        result.ExampleSentences.ShouldContain(s => s.En.Contains("She stared at the test results in disbelief."));
+        result.ExampleSentences.ShouldContain(s => s.En.Contains("He stared into the distance thinking about his future."));
+
+        // Verify it was cached with both sentences linked
+        var cached = await _repository.GetByTermAsync("stared");
+        cached.ShouldNotBeNull();
+        cached.Sentences.Count.ShouldBe(2);
+    }
 }
+
