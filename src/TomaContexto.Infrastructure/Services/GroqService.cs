@@ -89,20 +89,26 @@ public class GroqService : IGroqService
 
             var translationsByPos = groqWord.Categories
                 .Select(c => new TranslationGroupDto(
-                    c.PartOfSpeech,
-                    c.Translations.Distinct().ToList()
+                    CleanWhitespace(c.PartOfSpeech),
+                    c.Translations
+                        .Select(CleanWhitespace)
+                        .Where(t => !string.IsNullOrWhiteSpace(t))
+                        .Distinct()
+                        .ToList()
                 ))
                 .ToList();
 
             var sentences = groqWord.Sentences
-                .Select(s => new SentencePairDto(s.En, s.Pt))
+                .Select(s => new SentencePairDto(CleanWhitespace(s.En), CleanWhitespace(s.Pt)))
+                .Where(s => !string.IsNullOrWhiteSpace(s.En) && !string.IsNullOrWhiteSpace(s.Pt))
                 .ToList();
 
-            var finalTerm = string.IsNullOrWhiteSpace(groqWord.Term) ? term : groqWord.Term.Trim().ToLowerInvariant();
+            var termToUse = string.IsNullOrWhiteSpace(groqWord.Term) ? term : groqWord.Term;
+            var finalTerm = CleanWhitespace(termToUse).ToLowerInvariant();
 
             return new WordLookupResponseDto(
                 finalTerm,
-                groqWord.Phonetic,
+                CleanWhitespace(groqWord.Phonetic),
                 translationsByPos,
                 sentences
             );
@@ -112,6 +118,21 @@ public class GroqService : IGroqService
             _logger.LogError(ex, "Exception occurred while querying Groq API for term '{Term}': {Message}", term, ex.Message);
             return null;
         }
+    }
+
+    public static string CleanWhitespace(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            return string.Empty;
+        }
+
+        return input
+            .Replace('\u202F', ' ')  // Narrow no-break space
+            .Replace('\u00A0', ' ')  // Non-breaking space
+            .Replace('\u200B', ' ')  // Zero-width space
+            .Replace('\uFEFF', ' ')  // Zero-width no-break space / BOM
+            .Trim();
     }
 
     private sealed class GroqChatCompletionResponse

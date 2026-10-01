@@ -77,6 +77,60 @@ public class GroqServiceTests
         handler.CallCount.ShouldBe(1);
     }
 
+    [Fact]
+    public async Task QueryTermAsync_WithNarrowNoBreakSpace_ShouldSanitizeToStandardAsciiSpace()
+    {
+        // Arrange - Simulates model returning \u202F in time expressions like 9\u202Fa.m. and 9\u202Fh
+        var mockJsonContent = """
+        {
+          "choices": [
+            {
+              "message": {
+                "content": "{\n  \"term\": \"daylight savings\",\n  \"phonetic\": \"/ˈdeɪ.laɪt ˈseɪ.vɪŋz/\",\n  \"categories\": [\n    {\n      \"partOfSpeech\": \"Substantivo\",\n      \"translations\": [\"horário\u00A0de\u00A0verão\"]\n    }\n  ],\n  \"sentences\": [\n    {\n      \"en\": \"The meeting was moved to 9\u202Fa.m. because of daylight savings time.\",\n      \"pt\": \"A reunião foi adiada para as 9\u202Fh porque o horário de verão começou.\"\n    }\n  ]\n}"
+              }
+            }
+          ]
+        }
+        """;
+
+        var handler = new TestHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(mockJsonContent, System.Text.Encoding.UTF8, "application/json")
+        });
+
+        var httpClient = new HttpClient(handler);
+        var options = Options.Create(new GroqOptions
+        {
+            ApiKey = "gsk_testkey12345",
+            Endpoint = "https://api.groq.com/openai/v1/chat/completions"
+        });
+
+        var service = new GroqService(httpClient, options, NullLogger<GroqService>.Instance);
+
+        // Act
+        var result = await service.QueryTermAsync("daylight savings");
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.ExampleSentences[0].En.ShouldBe("The meeting was moved to 9 a.m. because of daylight savings time.");
+        result.ExampleSentences[0].Pt.ShouldBe("A reunião foi adiada para as 9 h porque o horário de verão começou.");
+        result.ExampleSentences[0].En.ShouldNotContain("\u202F");
+        result.ExampleSentences[0].Pt.ShouldNotContain("\u202F");
+        result.TranslationsByPos[0].Translations[0].ShouldBe("horário de verão");
+        result.TranslationsByPos[0].Translations[0].ShouldNotContain("\u00A0");
+    }
+
+    [Theory]
+    [InlineData("9\u202Fa.m.", "9 a.m.")]
+    [InlineData("9\u202Fh", "9 h")]
+    [InlineData("hello\u00A0world", "hello world")]
+    [InlineData("  test \u200B ", "test")]
+    public void CleanWhitespace_ShouldNormalizeExoticSpaces(string input, string expected)
+    {
+        var cleaned = GroqService.CleanWhitespace(input);
+        cleaned.ShouldBe(expected);
+    }
+
     private sealed class TestHttpMessageHandler : HttpMessageHandler
     {
         private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder;
