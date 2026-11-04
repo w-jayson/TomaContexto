@@ -1,4 +1,4 @@
-# 🎯 TomaContexto (API)
+﻿# 🎯 TomaSeuContexto (API)
 
 > **Motor lexicográfico e minerador de sentenças (*sentence mining*) no método i+1 para aprendizado de inglês focado em falantes de português.**
 
@@ -23,9 +23,9 @@
 
 ## 💡 Sobre o Projeto
 
-O **TomaContexto** foi concebido para resolver um dos maiores gargalos de quem aprende inglês: decorar listas de vocabulário isoladas sem contexto real.
+O **TomaSeuContexto** foi concebido para resolver um dos maiores gargalos de quem aprende inglês: decorar listas de vocabulário isoladas sem contexto real.
 
-Baseado na hipótese do **Input Compreensível (*i+1*) de Stephen Krashen**, o TomaContexto ajuda o estudante a minerar sentenças onde **"i"** é o conhecimento que ele já possui e **"+1"** é a nova palavra ou expressão idiomática inserida em uma estrutura natural e compreensível.
+Baseado na hipótese do **Input Compreensível (*i+1*) de Stephen Krashen**, o TomaSeuContexto ajuda o estudante a minerar sentenças onde **"i"** é o conhecimento que ele já possui e **"+1"** é a nova palavra ou expressão idiomática inserida em uma estrutura natural e compreensível.
 
 ### Principais Funcionalidades:
 - 🔍 **Consulta Lexicográfica Inteligente:** Retorna fonética (IPA), classificação gramatical (*Part of Speech*) e traduções diretas e concisas.
@@ -53,14 +53,14 @@ Baseado na hipótese do **Input Compreensível (*i+1*) de Stephen Krashen**, o T
 O projeto segue os princípios de separação de responsabilidades:
 
 ```text
-TomaContexto/
+TomaSeuContexto/
 ├── src/
-│   ├── TomaContexto.Domain/           # Entidades (Word, Sentence, WordTranslation) e regras centrais
-│   ├── TomaContexto.Application/      # DTOs, Interfaces de serviço/repositório e casos de uso
-│   ├── TomaContexto.Infrastructure/   # EF Core DbContext, Repositórios (Postgres e In-Memory), GroqService
-│   └── TomaContexto.Api/              # Controllers, Middlewares, Program.cs e configurações
+│   ├── TomaSeuContexto.Domain/           # Entidades (Word, Sentence, WordTranslation) e regras centrais
+│   ├── TomaSeuContexto.Application/      # DTOs, Interfaces de serviço/repositório e casos de uso
+│   ├── TomaSeuContexto.Infrastructure/   # EF Core DbContext, Repositórios (Postgres e In-Memory), GroqService
+│   └── TomaSeuContexto.Api/              # Controllers, Middlewares, Program.cs e configurações
 └── tests/
-    └── TomaContexto.UnitTests/        # Testes unitários para Application, Controllers e Infrastructure
+    └── TomaSeuContexto.UnitTests/        # Testes unitários para Application, Controllers e Infrastructure
 ```
 
 ---
@@ -73,12 +73,12 @@ TomaContexto/
 
 ### 1. Clonar o repositório
 ```bash
-git clone https://github.com/seu-usuario/TomaContexto.git
-cd TomaContexto
+git clone https://github.com/seu-usuario/TomaSeuContexto.git
+cd TomaSeuContexto
 ```
 
 ### 2. Configurar Variáveis de Ambiente ou `appsettings`
-No arquivo `src/TomaContexto.Api/appsettings.Development.json` (ou via variáveis de ambiente):
+No arquivo `src/TomaSeuContexto.Api/appsettings.Development.json` (ou via variáveis de ambiente):
 
 ```json
 {
@@ -95,7 +95,7 @@ No arquivo `src/TomaContexto.Api/appsettings.Development.json` (ou via variávei
 
 ### 3. Rodar a aplicação
 ```bash
-dotnet run --project src/TomaContexto.Api --environment Development
+dotnet run --project src/TomaSeuContexto.Api --environment Development
 ```
 
 ### 4. Acessar a Documentação Interativa

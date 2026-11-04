@@ -1,4 +1,4 @@
-## Build results
+## Build results (.NET)
 [Dd]ebug/
 [Dd]ebugPublic/
 [Rr]elease/
@@ -50,6 +50,33 @@ appsettings.local.json
 .env
 .env.*
 !.env.example
+
+## Mobile (Node / React Native / Expo)
+node_modules/
+*/node_modules/
+.expo/
+*/.expo/
+dist/
+*/dist/
+web-build/
+*/web-build/
+expo-env.d.ts
+*/expo-env.d.ts
+.metro-health-check*
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+*.tsbuildinfo
+
+## Native Mobile Builds (Expo prebuild)
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+mobile/ios/
+mobile/android/
 
 ## OS files
 .DS_Store

@@ -1,0 +1,6 @@
+﻿@TomaSeuContexto.Api_HostAddress = http://localhost:5127
+
+GET {{TomaSeuContexto.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
