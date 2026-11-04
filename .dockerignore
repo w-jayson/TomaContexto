@@ -1,0 +1,26 @@
+# Git & IDEs
+.git/
+.vs/
+.idea/
+.vscode/
+
+# Build artifacts
+**/bin/
+**/obj/
+**/TestResults/
+
+# Secrets & local files
+**/appsettings.local.json
+**/secrets.json
+**/*.local.json
+
+# Mobile frontend (separate build context)
+mobile/
+.agents/
+.agent/
+.skills/
+
+# Misc
+*.md
+.dockerignore
+Dockerfile
