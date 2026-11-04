@@ -75,7 +75,8 @@ export async function lookupWord(term: string): Promise<WordLookupResponseDto> {
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    // 45s timeout to comfortably accommodate free-tier cloud cold starts and LLM generation
+    const timeoutId = setTimeout(() => controller.abort(), 45000);
 
     const response = await fetch(`${baseUrl}/api/Words/${encodeURIComponent(cleanTerm)}`, {
       method: 'GET',
@@ -104,7 +105,7 @@ export async function lookupWord(term: string): Promise<WordLookupResponseDto> {
     }
 
     if (err.name === 'AbortError') {
-      throw new Error(`Tempo limite esgotado ao conectar com a API em ${baseUrl}. Verifique se o backend .NET está em execução.`);
+      throw new Error(`O servidor na nuvem demorou para responder (comum ao acordar da hibernação). Por favor, tente novamente agora!`);
     }
 
     if (err.message && err.message.includes('não foi encontrada')) {

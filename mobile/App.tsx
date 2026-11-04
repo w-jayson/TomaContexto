@@ -38,6 +38,7 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [wordData, setWordData] = useState<WordLookupResponseDto | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('Minerando sentenças no contexto i+1...');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isCurrentWordSaved, setIsCurrentWordSaved] = useState(false);
 
@@ -47,6 +48,17 @@ export default function App() {
   const [isSavedModalOpen, setIsSavedModalOpen] = useState(false);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    let timer: any;
+    if (isLoading) {
+      setLoadingMessage('Minerando sentenças no contexto i+1...');
+      timer = setTimeout(() => {
+        setLoadingMessage('O servidor gratuito está acordando da hibernação... quase pronto!');
+      }, 4000);
+    }
+    return () => clearTimeout(timer);
+  }, [isLoading]);
 
   // Load initial saved words and recent searches on startup
   const loadStoredData = useCallback(async () => {
@@ -156,7 +168,7 @@ export default function App() {
           {isLoading && (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={styles.loadingText}>Minerando sentenças no contexto i+1...</Text>
+              <Text style={styles.loadingText}>{loadingMessage}</Text>
             </View>
           )}
 

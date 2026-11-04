@@ -72,6 +72,7 @@ app.UseCors("AllowAll");
 // Redirect root and /swagger to Scalar API reference
 app.MapGet("/", () => Results.Redirect("/scalar/v1"));
 app.MapGet("/swagger", () => Results.Redirect("/scalar/v1"));
+app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }));
 
 app.MapControllers();
 
