@@ -3,10 +3,12 @@ import { Platform } from 'react-native';
 
 const STORAGE_KEY = '@tomaseucontexto_api_url';
 
-export const DEFAULT_API_URL = Platform.select({
-  android: 'http://10.0.2.2:5000',
-  default: 'http://localhost:5000',
-});
+export const DEFAULT_API_URL =
+  process.env.EXPO_PUBLIC_API_URL ||
+  Platform.select({
+    android: 'http://10.0.2.2:5000',
+    default: 'http://localhost:5000',
+  });
 
 export async function getApiBaseUrl(): Promise<string> {
   try {
