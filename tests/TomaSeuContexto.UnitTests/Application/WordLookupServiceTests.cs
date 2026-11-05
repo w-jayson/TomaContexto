@@ -1,4 +1,4 @@
-﻿namespace TomaSeuContexto.UnitTests.Application;
+namespace TomaSeuContexto.UnitTests.Application;
 
 using Shouldly;
 using TomaSeuContexto.Application.DTOs;
@@ -133,6 +133,20 @@ public class WordLookupServiceTests
     {
         // Act
         var result = await _service.LookupTermAsync(rawTerm!);
+
+        // Assert
+        result.ShouldBeNull();
+        _fakeGroq.CallCount.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task LookupTermAsync_WhenTermExceedsMaxLength_ShouldReturnNullWithoutCallingGroq()
+    {
+        // Arrange
+        var oversizedTerm = new string('x', WordLookupService.MaxTermLength + 1);
+
+        // Act
+        var result = await _service.LookupTermAsync(oversizedTerm);
 
         // Assert
         result.ShouldBeNull();

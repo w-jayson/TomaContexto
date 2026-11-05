@@ -1,11 +1,14 @@
 namespace TomaSeuContexto.Api.Controllers;
 
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using TomaSeuContexto.Application.DTOs;
 using TomaSeuContexto.Application.Interfaces;
+using TomaSeuContexto.Application.Services;
 
 [ApiController]
 [Route("api/[controller]")]
+[EnableRateLimiting("SearchPolicy")]
 public class WordsController : ControllerBase
 {
     private readonly IWordLookupService _wordLookupService;
@@ -25,6 +28,7 @@ public class WordsController : ControllerBase
     [ProducesResponseType(typeof(WordLookupResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> GetByTerm([FromRoute] string term, CancellationToken cancellationToken)
     {
@@ -37,12 +41,22 @@ public class WordsController : ControllerBase
             );
         }
 
-        var result = await _wordLookupService.LookupTermAsync(term, cancellationToken);
+        var trimmedTerm = term.Trim();
+        if (trimmedTerm.Length > WordLookupService.MaxTermLength)
+        {
+            return Problem(
+                title: "Term too long",
+                detail: $"The 'term' parameter must not exceed {WordLookupService.MaxTermLength} characters.",
+                statusCode: StatusCodes.Status400BadRequest
+            );
+        }
+
+        var result = await _wordLookupService.LookupTermAsync(trimmedTerm, cancellationToken);
         if (result is null)
         {
             return Problem(
                 title: "Word Not Found",
-                detail: $"The term '{term.Trim()}' was not found in the vocabulary repository.",
+                detail: $"The term '{trimmedTerm}' was not found in the vocabulary repository.",
                 statusCode: StatusCodes.Status404NotFound
             );
         }

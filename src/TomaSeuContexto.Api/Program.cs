@@ -1,3 +1,7 @@
+using System.Globalization;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 using TomaSeuContexto.Api.Middlewares;
@@ -15,6 +19,57 @@ builder.Configuration.AddJsonFile("appsettings.local.json", optional: true, relo
 
 // Options configuration
 builder.Services.Configure<GroqOptions>(builder.Configuration.GetSection(GroqOptions.SectionName));
+
+// Forwarded headers so rate limiting identifies real client IP behind Caddy / reverse proxies
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
+// Rate limiting configuration for search endpoints
+var permitLimit = builder.Configuration.GetValue("RateLimiting:PermitLimit", 15);
+var windowSeconds = builder.Configuration.GetValue("RateLimiting:WindowSeconds", 60);
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+        {
+            context.HttpContext.Response.Headers.RetryAfter =
+                ((int)Math.Ceiling(retryAfter.TotalSeconds)).ToString(CultureInfo.InvariantCulture);
+        }
+
+        context.HttpContext.Response.ContentType = "application/problem+json";
+        var problemDetails = new ProblemDetails
+        {
+            Status = StatusCodes.Status429TooManyRequests,
+            Title = "Too Many Requests",
+            Detail = "Search rate limit exceeded. Please wait a moment before trying again.",
+            Instance = context.HttpContext.Request.Path
+        };
+
+        await context.HttpContext.Response.WriteAsJsonAsync(problemDetails, cancellationToken: cancellationToken);
+    };
+
+    options.AddPolicy("SearchPolicy", httpContext =>
+    {
+        var clientIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: clientIp,
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = permitLimit,
+                Window = TimeSpan.FromSeconds(windowSeconds),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            });
+    });
+});
 
 // Presentation services
 builder.Services.AddControllers();
@@ -62,12 +117,14 @@ if (!string.IsNullOrWhiteSpace(connectionString))
 }
 
 // Middlewares
+app.UseForwardedHeaders();
 app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 
 app.MapOpenApi();
 app.MapScalarApiReference();
 
 app.UseCors("AllowAll");
+app.UseRateLimiter();
 
 // Redirect root and /swagger to Scalar API reference
 app.MapGet("/", () => Results.Redirect("/scalar/v1"));

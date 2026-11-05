@@ -69,8 +69,35 @@ const MOCK_WORDS: Record<string, WordLookupResponseDto> = {
   },
 };
 
+export const MAX_SEARCH_LENGTH = 80;
+const CLIENT_RATE_LIMIT_MAX_REQUESTS = 15;
+const CLIENT_RATE_LIMIT_WINDOW_MS = 60_000;
+const requestTimestamps: number[] = [];
+
 export async function lookupWord(term: string): Promise<WordLookupResponseDto> {
   const cleanTerm = term.trim().toLowerCase();
+
+  if (cleanTerm.length > MAX_SEARCH_LENGTH) {
+    throw new Error(
+      `O termo pesquisado é muito longo (máximo de ${MAX_SEARCH_LENGTH} caracteres). Digite apenas uma palavra ou expressão.`
+    );
+  }
+
+  // Client-side sliding window rate limit check
+  const now = Date.now();
+  while (requestTimestamps.length > 0 && now - requestTimestamps[0] > CLIENT_RATE_LIMIT_WINDOW_MS) {
+    requestTimestamps.shift();
+  }
+  if (requestTimestamps.length >= CLIENT_RATE_LIMIT_MAX_REQUESTS) {
+    const retrySeconds = Math.ceil(
+      (CLIENT_RATE_LIMIT_WINDOW_MS - (now - requestTimestamps[0])) / 1000
+    );
+    throw new Error(
+      `Muitas buscas em pouco tempo. Aguarde cerca de ${retrySeconds}s antes de pesquisar novamente.`
+    );
+  }
+  requestTimestamps.push(now);
+
   const baseUrl = await getApiBaseUrl();
 
   let response: Response;
@@ -108,6 +135,18 @@ export async function lookupWord(term: string): Promise<WordLookupResponseDto> {
   if (response.ok) {
     const data: WordLookupResponseDto = await response.json();
     return data;
+  }
+
+  if (response.status === 400) {
+    throw new Error(
+      `Termo inválido ou muito longo (máximo de ${MAX_SEARCH_LENGTH} caracteres).`
+    );
+  }
+
+  if (response.status === 429) {
+    const retryAfter = response.headers.get('Retry-After');
+    const waitHint = retryAfter ? ` Aguarde ${retryAfter}s e tente novamente.` : ' Aguarde alguns instantes e tente novamente.';
+    throw new Error(`Limite de buscas atingido.${waitHint}`);
   }
 
   if (response.status === 404) {

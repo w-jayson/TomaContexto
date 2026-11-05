@@ -111,4 +111,25 @@ public class WordsControllerTests
         problem.Status.ShouldBe(StatusCodes.Status400BadRequest);
         problem.Title.ShouldBe("Invalid term");
     }
+
+    [Fact]
+    public async Task GetByTerm_WhenTermExceedsMaxLength_ShouldReturn400BadRequestWithProblemDetails()
+    {
+        // Arrange
+        var hugeTerm = new string('a', WordLookupService.MaxTermLength + 1);
+
+        // Act
+        var actionResult = await _controller.GetByTerm(hugeTerm, CancellationToken.None);
+
+        // Assert
+        var objectResult = actionResult.ShouldBeOfType<ObjectResult>();
+        objectResult.StatusCode.ShouldBe(StatusCodes.Status400BadRequest);
+
+        var problem = objectResult.Value.ShouldBeOfType<ProblemDetails>();
+        problem.Status.ShouldBe(StatusCodes.Status400BadRequest);
+        problem.Title.ShouldBe("Term too long");
+        problem.Detail.ShouldNotBeNull();
+        problem.Detail.ShouldContain(WordLookupService.MaxTermLength.ToString());
+        _fakeGroq.CallCount.ShouldBe(0);
+    }
 }
