@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   TextInput,
@@ -7,7 +7,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
+import { ThemeColors } from '../theme/colors';
 
 interface SearchBarProps {
   value: string;
@@ -22,6 +23,9 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   onSubmit,
   isLoading,
 }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <View style={styles.wrapper}>
       <View style={styles.inputContainer}>
@@ -63,45 +67,46 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  wrapper: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 12,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.surfaceBorder,
-    borderRadius: 14,
-    paddingLeft: 14,
-    paddingRight: 6,
-    height: 52,
-  },
-  searchIcon: {
-    marginRight: 10,
-  },
-  input: {
-    flex: 1,
-    color: colors.textPrimary,
-    fontSize: 15,
-    height: '100%',
-  },
-  clearButton: {
-    padding: 6,
-    marginRight: 4,
-  },
-  submitButton: {
-    backgroundColor: colors.primary,
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  submitButtonDisabled: {
-    opacity: 0.35,
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    wrapper: {
+      paddingHorizontal: 20,
+      paddingTop: 16,
+      paddingBottom: 12,
+    },
+    inputContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      borderRadius: 14,
+      paddingLeft: 14,
+      paddingRight: 6,
+      height: 52,
+    },
+    searchIcon: {
+      marginRight: 10,
+    },
+    input: {
+      flex: 1,
+      color: colors.textPrimary,
+      fontSize: 15,
+      height: '100%',
+    },
+    clearButton: {
+      padding: 6,
+      marginRight: 4,
+    },
+    submitButton: {
+      backgroundColor: colors.primary,
+      width: 40,
+      height: 40,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    submitButtonDisabled: {
+      opacity: 0.35,
+    },
+  });

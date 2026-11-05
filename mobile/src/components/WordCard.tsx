@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Speech from 'expo-speech';
 import { WordLookupResponseDto } from '../types/word';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
+import { ThemeColors } from '../theme/colors';
 
 interface WordCardProps {
   word: WordLookupResponseDto;
@@ -12,6 +13,8 @@ interface WordCardProps {
 }
 
 export const WordCard: React.FC<WordCardProps> = ({ word, isSaved, onToggleSave }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [isPlaying, setIsPlaying] = useState(false);
 
   const speakTerm = async () => {
@@ -83,7 +86,7 @@ export const WordCard: React.FC<WordCardProps> = ({ word, isSaved, onToggleSave 
           const badgeColor = getPosColor(group.partOfSpeech);
           return (
             <View key={`${group.partOfSpeech}-${gIndex}`} style={styles.posBlock}>
-              <View style={[styles.posBadge, { borderColor: badgeColor, backgroundColor: `${badgeColor}15` }]}>
+              <View style={[styles.posBadge, { borderColor: badgeColor, backgroundColor: `${badgeColor}18` }]}>
                 <Text style={[styles.posBadgeText, { color: badgeColor }]}>
                   {group.partOfSpeech}
                 </Text>
@@ -104,95 +107,96 @@ export const WordCard: React.FC<WordCardProps> = ({ word, isSaved, onToggleSave 
   );
 };
 
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.surfaceBorder,
-    borderRadius: 20,
-    padding: 20,
-    marginHorizontal: 20,
-    marginVertical: 10,
-  },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceBorder,
-  },
-  termInfo: {
-    flex: 1,
-    marginRight: 12,
-  },
-  term: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: colors.textPrimary,
-    letterSpacing: -0.5,
-  },
-  phoneticRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 4,
-  },
-  phonetic: {
-    fontSize: 15,
-    color: colors.textSecondary,
-    fontFamily: 'monospace',
-  },
-  speakerButton: {
-    padding: 4,
-  },
-  saveButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: colors.surfaceBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  saveButtonActive: {
-    backgroundColor: colors.primary,
-  },
-  translationsContainer: {
-    marginTop: 16,
-    gap: 14,
-  },
-  posBlock: {
-    gap: 8,
-  },
-  posBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  posBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  translationsList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  translationPill: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.surfaceBorder,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
-  },
-  translationText: {
-    color: colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    card: {
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      borderRadius: 20,
+      padding: 20,
+      marginHorizontal: 20,
+      marginVertical: 10,
+    },
+    topRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      paddingBottom: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.surfaceBorder,
+    },
+    termInfo: {
+      flex: 1,
+      marginRight: 12,
+    },
+    term: {
+      fontSize: 28,
+      fontWeight: '800',
+      color: colors.textPrimary,
+      letterSpacing: -0.5,
+    },
+    phoneticRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginTop: 4,
+    },
+    phonetic: {
+      fontSize: 15,
+      color: colors.textSecondary,
+      fontFamily: 'monospace',
+    },
+    speakerButton: {
+      padding: 4,
+    },
+    saveButton: {
+      width: 42,
+      height: 42,
+      borderRadius: 12,
+      backgroundColor: colors.surfaceBorder,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    saveButtonActive: {
+      backgroundColor: colors.primary,
+    },
+    translationsContainer: {
+      marginTop: 16,
+      gap: 14,
+    },
+    posBlock: {
+      gap: 8,
+    },
+    posBadge: {
+      alignSelf: 'flex-start',
+      paddingHorizontal: 10,
+      paddingVertical: 3,
+      borderRadius: 8,
+      borderWidth: 1,
+    },
+    posBadgeText: {
+      fontSize: 11,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    translationsList: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    translationPill: {
+      backgroundColor: colors.background,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 10,
+    },
+    translationText: {
+      color: colors.textPrimary,
+      fontSize: 14,
+      fontWeight: '500',
+    },
+  });

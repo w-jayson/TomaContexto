@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Modal,
   View,
@@ -10,7 +10,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SavedWord } from '../types/word';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
+import { ThemeColors } from '../theme/colors';
 
 interface SavedWordsModalProps {
   visible: boolean;
@@ -27,6 +28,9 @@ export const SavedWordsModal: React.FC<SavedWordsModalProps> = ({
   onSelectWord,
   onRemoveWord,
 }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
       <SafeAreaView style={styles.container}>
@@ -87,105 +91,106 @@ export const SavedWordsModal: React.FC<SavedWordsModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    width: '100%',
-    maxWidth: 580,
-    alignSelf: 'center',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceBorder,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
-  closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  listContent: {
-    padding: 20,
-    gap: 12,
-  },
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.surfaceBorder,
-    borderRadius: 14,
-    padding: 16,
-  },
-  cardContent: {
-    flex: 1,
-  },
-  termRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 8,
-  },
-  term: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  phonetic: {
-    fontSize: 13,
-    color: colors.textMuted,
-    fontFamily: 'monospace',
-  },
-  translation: {
-    fontSize: 14,
-    color: colors.primary,
-    marginTop: 4,
-    fontWeight: '500',
-  },
-  date: {
-    fontSize: 11,
-    color: colors.textMuted,
-    marginTop: 6,
-  },
-  deleteButton: {
-    padding: 8,
-    marginLeft: 8,
-  },
-  emptyContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginTop: 16,
-  },
-  emptyDesc: {
-    fontSize: 14,
-    color: colors.textMuted,
-    textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 20,
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+      width: '100%',
+      maxWidth: 580,
+      alignSelf: 'center',
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.surfaceBorder,
+    },
+    title: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    subtitle: {
+      fontSize: 13,
+      color: colors.textMuted,
+      marginTop: 2,
+    },
+    closeButton: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: colors.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    listContent: {
+      padding: 20,
+      gap: 12,
+    },
+    card: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      borderRadius: 14,
+      padding: 16,
+    },
+    cardContent: {
+      flex: 1,
+    },
+    termRow: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      gap: 8,
+    },
+    term: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    phonetic: {
+      fontSize: 13,
+      color: colors.textMuted,
+      fontFamily: 'monospace',
+    },
+    translation: {
+      fontSize: 14,
+      color: colors.primary,
+      marginTop: 4,
+      fontWeight: '500',
+    },
+    date: {
+      fontSize: 11,
+      color: colors.textMuted,
+      marginTop: 6,
+    },
+    deleteButton: {
+      padding: 8,
+      marginLeft: 8,
+    },
+    emptyContainer: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 32,
+    },
+    emptyTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.textPrimary,
+      marginTop: 16,
+    },
+    emptyDesc: {
+      fontSize: 14,
+      color: colors.textMuted,
+      textAlign: 'center',
+      marginTop: 8,
+      lineHeight: 20,
+    },
+  });
