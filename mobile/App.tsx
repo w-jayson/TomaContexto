@@ -16,16 +16,9 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import { ThemeColors } from './src/theme/colors';
-import { WordLookupResponseDto, SavedWord } from './src/types/word';
+import { WordLookupResponseDto } from './src/types/word';
 import { lookupWord } from './src/api/wordsApi';
-import {
-  getSavedWords,
-  toggleSaveWord,
-  isWordSaved,
-  removeSavedWord,
-  getRecentSearches,
-  addRecentSearch,
-} from './src/utils/storage';
+import { getRecentSearches, addRecentSearch } from './src/utils/storage';
 import { useResponsive } from './src/utils/useResponsive';
 
 import { Header } from './src/components/Header';
@@ -33,11 +26,10 @@ import { SearchBar } from './src/components/SearchBar';
 import { WordCard } from './src/components/WordCard';
 import { SentenceCard } from './src/components/SentenceCard';
 import { EmptyState } from './src/components/EmptyState';
-import { SavedWordsModal } from './src/components/SavedWordsModal';
 
 function MainApp() {
   const { colors, isDark } = useTheme();
-  const { isWide, isDesktop, isMobile } = useResponsive();
+  const { isWide, isDesktop } = useResponsive();
   const styles = useMemo(
     () => createStyles(colors, isDark, isWide, isDesktop),
     [colors, isDark, isWide, isDesktop]
@@ -48,12 +40,7 @@ function MainApp() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('Minerando sentenças no contexto i+1...');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isCurrentWordSaved, setIsCurrentWordSaved] = useState(false);
-
-  const [savedWords, setSavedWords] = useState<SavedWord[]>([]);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
-
-  const [isSavedModalOpen, setIsSavedModalOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -67,23 +54,15 @@ function MainApp() {
     return () => clearTimeout(timer);
   }, [isLoading]);
 
-  // Load initial saved words and recent searches on startup
+  // Load initial recent searches on startup
   const loadStoredData = useCallback(async () => {
-    const [saved, recent] = await Promise.all([getSavedWords(), getRecentSearches()]);
-    setSavedWords(saved);
+    const recent = await getRecentSearches();
     setRecentSearches(recent);
   }, []);
 
   useEffect(() => {
     loadStoredData();
   }, [loadStoredData]);
-
-  // Check if current word is saved whenever wordData changes
-  useEffect(() => {
-    if (wordData) {
-      isWordSaved(wordData.term).then(setIsCurrentWordSaved);
-    }
-  }, [wordData]);
 
   const handleSearch = async (termToSearch?: string) => {
     const target = (termToSearch || searchTerm).trim();
@@ -114,23 +93,7 @@ function MainApp() {
     }
   };
 
-  const handleToggleSave = async () => {
-    if (!wordData) return;
-    const isNowSaved = await toggleSaveWord(wordData);
-    setIsCurrentWordSaved(isNowSaved);
-    const updatedList = await getSavedWords();
-    setSavedWords(updatedList);
-  };
-
-  const handleRemoveSavedWord = async (term: string) => {
-    const updated = await removeSavedWord(term);
-    setSavedWords(updated);
-    if (wordData && wordData.term.toLowerCase() === term.toLowerCase()) {
-      setIsCurrentWordSaved(false);
-    }
-  };
-
-  const handleSelectFromModalOrHistory = (term: string) => {
+  const handleSelectRecent = (term: string) => {
     setSearchTerm(term);
     handleSearch(term);
   };
@@ -141,10 +104,7 @@ function MainApp() {
 
       <View style={styles.appContainer}>
         {/* Main App Bar */}
-        <Header
-          savedCount={savedWords.length}
-          onOpenSaved={() => setIsSavedModalOpen(true)}
-        />
+        <Header />
 
         {/* Persistent Search Bar */}
         <SearchBar
@@ -153,7 +113,7 @@ function MainApp() {
           onSubmit={handleSearch}
           isLoading={isLoading}
           recentSearches={recentSearches}
-          onSelectRecent={handleSelectFromModalOrHistory}
+          onSelectRecent={handleSelectRecent}
         />
 
         {/* Main Content Area */}
@@ -175,7 +135,7 @@ function MainApp() {
           {/* Loading Spinner */}
           {isLoading && (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size={isWide ? 'large' : 'large'} color={colors.primary} />
+              <ActivityIndicator size="large" color={colors.primary} />
               <Text style={styles.loadingText}>{loadingMessage}</Text>
             </View>
           )}
@@ -206,48 +166,9 @@ function MainApp() {
               {isDesktop ? (
                 /* Desktop Two-Column Layout */
                 <View style={styles.desktopLayout}>
-                  {/* Left Column: Word Anchor & Quick Deck */}
+                  {/* Left Column: Word Anchor */}
                   <View style={styles.desktopSidebar}>
-                    <WordCard
-                      word={wordData}
-                      isSaved={isCurrentWordSaved}
-                      onToggleSave={handleToggleSave}
-                    />
-
-                    {/* Quick Deck Widget on Desktop */}
-                    {savedWords.length > 0 && (
-                      <View style={styles.deckSidebarCard}>
-                        <View style={styles.deckSidebarHeader}>
-                          <View style={styles.deckSidebarTitleRow}>
-                            <Ionicons name="bookmark" size={16} color={colors.targetToken} />
-                            <Text style={styles.deckSidebarTitle}>Deck Salvo</Text>
-                          </View>
-                          <TouchableOpacity
-                            onPress={() => setIsSavedModalOpen(true)}
-                            activeOpacity={0.7}
-                            style={styles.deckViewAllBtn}
-                          >
-                            <Text style={styles.deckViewAllText}>Ver todas ({savedWords.length})</Text>
-                          </TouchableOpacity>
-                        </View>
-
-                        <View style={styles.deckItemsList}>
-                          {savedWords.slice(0, 5).map((item) => (
-                            <TouchableOpacity
-                              key={item.term}
-                              style={styles.deckItem}
-                              onPress={() => handleSelectFromModalOrHistory(item.term)}
-                              activeOpacity={0.7}
-                            >
-                              <Text style={styles.deckItemTerm}>{item.term}</Text>
-                              <Text style={styles.deckItemTrans} numberOfLines={1}>
-                                {item.mainTranslation}
-                              </Text>
-                            </TouchableOpacity>
-                          ))}
-                        </View>
-                      </View>
-                    )}
+                    <WordCard word={wordData} />
                   </View>
 
                   {/* Right Column: Sentence Context Mining Stream */}
@@ -277,11 +198,7 @@ function MainApp() {
                 /* Mobile / Tablet Stacked Layout */
                 <View style={styles.stackedLayout}>
                   {/* Word Header Card */}
-                  <WordCard
-                    word={wordData}
-                    isSaved={isCurrentWordSaved}
-                    onToggleSave={handleToggleSave}
-                  />
+                  <WordCard word={wordData} />
 
                   {/* Sentence Mining Section */}
                   <View style={styles.sentencesHeader}>
@@ -311,15 +228,6 @@ function MainApp() {
           {!isLoading && !wordData && !errorMessage && <EmptyState />}
         </ScrollView>
       </View>
-
-      {/* Modals */}
-      <SavedWordsModal
-        visible={isSavedModalOpen}
-        onClose={() => setIsSavedModalOpen(false)}
-        savedWords={savedWords}
-        onSelectWord={handleSelectFromModalOrHistory}
-        onRemoveWord={handleRemoveSavedWord}
-      />
     </SafeAreaView>
   );
 }
@@ -369,8 +277,7 @@ const createStyles = (
       paddingTop: 8,
     },
     desktopSidebar: {
-      width: 390,
-      gap: 16,
+      width: 360,
     },
     desktopMainStream: {
       flex: 1,
@@ -436,7 +343,7 @@ const createStyles = (
     },
     sentencesHeader: {
       marginHorizontal: isDesktop ? 0 : isWide ? 32 : 20,
-      marginTop: isWide ? 14 : 18,
+      marginTop: isWide ? 12 : 18,
       marginBottom: isWide ? 14 : 10,
     },
     sectionTitleRow: {
@@ -457,71 +364,5 @@ const createStyles = (
     boldKeyword: {
       fontWeight: '700',
       color: colors.textPrimary,
-    },
-    deckSidebarCard: {
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
-      borderRadius: 18,
-      padding: 18,
-      gap: 12,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.02,
-      shadowRadius: 6,
-      elevation: 1,
-    },
-    deckSidebarHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingBottom: 10,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.surfaceBorder,
-    },
-    deckSidebarTitleRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-    },
-    deckSidebarTitle: {
-      fontSize: 14,
-      fontWeight: '700',
-      color: colors.textPrimary,
-    },
-    deckViewAllBtn: {
-      ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
-    },
-    deckViewAllText: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: colors.primary,
-    },
-    deckItemsList: {
-      gap: 8,
-    },
-    deckItem: {
-      backgroundColor: colors.surfaceHover,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
-      borderRadius: 10,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: 10,
-      ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
-    },
-    deckItemTerm: {
-      fontSize: 13,
-      fontWeight: '700',
-      color: colors.textPrimary,
-    },
-    deckItemTrans: {
-      fontSize: 12,
-      color: colors.textSecondary,
-      flex: 1,
-      textAlign: 'right',
     },
   });

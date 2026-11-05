@@ -9,11 +9,9 @@ import { useResponsive } from '../utils/useResponsive';
 
 interface WordCardProps {
   word: WordLookupResponseDto;
-  isSaved: boolean;
-  onToggleSave: () => void;
 }
 
-export const WordCard: React.FC<WordCardProps> = ({ word, isSaved, onToggleSave }) => {
+export const WordCard: React.FC<WordCardProps> = ({ word }) => {
   const { colors } = useTheme();
   const { isWide, isDesktop } = useResponsive();
   const styles = useMemo(() => createStyles(colors, isWide, isDesktop), [colors, isWide, isDesktop]);
@@ -45,12 +43,33 @@ export const WordCard: React.FC<WordCardProps> = ({ word, isSaved, onToggleSave 
     return colors.posDefault;
   };
 
+  // Adjust font size dynamically for long terms like "consciousness"
+  const termLength = word.term.length;
+  const termFontSize = useMemo(() => {
+    if (isWide) {
+      if (termLength >= 15) return 24;
+      if (termLength >= 11) return 27;
+      return 31;
+    } else {
+      if (termLength >= 15) return 21;
+      if (termLength >= 11) return 23;
+      return 26;
+    }
+  }, [isWide, termLength]);
+
   return (
     <View style={styles.card}>
-      {/* Top Header: Term + Speech + Save */}
+      {/* Top Header: Term + Phonetic + Pronunciation Audio */}
       <View style={styles.topRow}>
         <View style={styles.termInfo}>
-          <Text style={styles.term}>{word.term}</Text>
+          <Text
+            style={[styles.term, { fontSize: termFontSize }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+          >
+            {word.term}
+          </Text>
+
           {word.phonetic && (
             <View style={styles.phoneticRow}>
               <Text style={styles.phonetic}>{word.phonetic}</Text>
@@ -62,7 +81,7 @@ export const WordCard: React.FC<WordCardProps> = ({ word, isSaved, onToggleSave 
               >
                 <Ionicons
                   name={isPlaying ? 'volume-high' : 'volume-medium-outline'}
-                  size={isWide ? 20 : 18}
+                  size={isWide ? 19 : 18}
                   color={colors.primary}
                 />
               </TouchableOpacity>
@@ -70,26 +89,20 @@ export const WordCard: React.FC<WordCardProps> = ({ word, isSaved, onToggleSave 
           )}
         </View>
 
-        <TouchableOpacity
-          style={[
-            styles.saveButton,
-            isSaved && styles.saveButtonActive,
-            isWide && styles.saveButtonWide,
-          ]}
-          onPress={onToggleSave}
-          activeOpacity={0.7}
-        >
-          <Ionicons
-            name={isSaved ? 'bookmark' : 'bookmark-outline'}
-            size={isWide ? 19 : 20}
-            color={isSaved ? '#FFFFFF' : colors.textPrimary}
-          />
-          {isWide && (
-            <Text style={[styles.saveButtonText, isSaved && styles.saveButtonTextActive]}>
-              {isSaved ? 'Salva no Deck' : 'Salvar Palavra'}
-            </Text>
-          )}
-        </TouchableOpacity>
+        {!word.phonetic && (
+          <TouchableOpacity
+            style={styles.speakerButton}
+            onPress={speakTerm}
+            activeOpacity={0.7}
+            accessibilityLabel="Ouvir pronúncia"
+          >
+            <Ionicons
+              name={isPlaying ? 'volume-high' : 'volume-medium-outline'}
+              size={isWide ? 20 : 18}
+              color={colors.primary}
+            />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Translations grouped by Part of Speech */}
@@ -130,10 +143,10 @@ const createStyles = (colors: ThemeColors, isWide: boolean, isDesktop: boolean) 
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
-      borderRadius: isWide ? 22 : 20,
-      padding: isWide ? 26 : 20,
+      borderRadius: isWide ? 20 : 18,
+      padding: isWide ? 24 : 18,
       marginHorizontal: isDesktop ? 0 : isWide ? 32 : 20,
-      marginVertical: isWide ? 14 : 10,
+      marginVertical: isWide ? 12 : 10,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.03,
@@ -142,22 +155,26 @@ const createStyles = (colors: ThemeColors, isWide: boolean, isDesktop: boolean) 
     },
     topRow: {
       flexDirection: 'row',
-      alignItems: 'flex-start',
+      alignItems: 'center',
       justifyContent: 'space-between',
-      paddingBottom: isWide ? 20 : 16,
+      paddingBottom: isWide ? 16 : 14,
       borderBottomWidth: 1,
       borderBottomColor: colors.surfaceBorder,
     },
     termInfo: {
       flex: 1,
-      marginRight: 12,
     },
     term: {
-      fontSize: isWide ? 38 : 28,
       fontWeight: '800',
       color: colors.textPrimary,
-      letterSpacing: -0.6,
-      lineHeight: isWide ? 44 : 34,
+      letterSpacing: -0.5,
+      ...(Platform.OS === 'web'
+        ? ({
+            wordBreak: 'keep-all',
+            overflowWrap: 'normal',
+            whiteSpace: 'nowrap',
+          } as any)
+        : {}),
     },
     phoneticRow: {
       flexDirection: 'row',
@@ -166,7 +183,7 @@ const createStyles = (colors: ThemeColors, isWide: boolean, isDesktop: boolean) 
       marginTop: isWide ? 8 : 4,
     },
     phonetic: {
-      fontSize: isWide ? 17 : 15,
+      fontSize: isWide ? 16 : 14,
       color: colors.textSecondary,
       fontFamily: Platform.OS === 'web' ? 'monospace' : undefined,
     },
@@ -181,37 +198,8 @@ const createStyles = (colors: ThemeColors, isWide: boolean, isDesktop: boolean) 
       justifyContent: 'center',
       ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
     },
-    saveButton: {
-      width: 44,
-      height: 44,
-      borderRadius: 12,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
-      alignItems: 'center',
-      justifyContent: 'center',
-      ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
-    },
-    saveButtonWide: {
-      width: 'auto',
-      paddingHorizontal: 16,
-      flexDirection: 'row',
-      gap: 8,
-    },
-    saveButtonActive: {
-      backgroundColor: colors.primary,
-      borderColor: colors.primary,
-    },
-    saveButtonText: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: colors.textPrimary,
-    },
-    saveButtonTextActive: {
-      color: '#FFFFFF',
-    },
     translationsContainer: {
-      paddingTop: isWide ? 18 : 14,
+      paddingTop: isWide ? 16 : 12,
       gap: isWide ? 14 : 12,
     },
     posBlock: {
@@ -238,12 +226,12 @@ const createStyles = (colors: ThemeColors, isWide: boolean, isDesktop: boolean) 
       backgroundColor: colors.surfaceHover,
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
-      paddingHorizontal: isWide ? 14 : 12,
-      paddingVertical: isWide ? 7 : 6,
+      paddingHorizontal: isWide ? 13 : 11,
+      paddingVertical: isWide ? 6 : 5,
       borderRadius: 8,
     },
     translationText: {
-      fontSize: isWide ? 15 : 14,
+      fontSize: isWide ? 14 : 13,
       color: colors.textPrimary,
       fontWeight: '500',
     },
