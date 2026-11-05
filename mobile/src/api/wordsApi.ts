@@ -74,6 +74,101 @@ const CLIENT_RATE_LIMIT_MAX_REQUESTS = 15;
 const CLIENT_RATE_LIMIT_WINDOW_MS = 60_000;
 const requestTimestamps: number[] = [];
 
+export interface WordSuggestion {
+  word: string;
+  isCorrection: boolean;
+}
+
+/**
+ * Fetches real-time autocomplete and spell-correction suggestions while the user types.
+ * Combines local backend repository matches with Datamuse lexical/spellcheck suggestions.
+ */
+export async function fetchWordSuggestions(
+  query: string,
+  recentSearches: string[] = []
+): Promise<WordSuggestion[]> {
+  const cleanQuery = query.trim().toLowerCase();
+  if (cleanQuery.length < 2 || cleanQuery.length > MAX_SEARCH_LENGTH) {
+    return [];
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 2500);
+
+  try {
+    const baseUrl = await getApiBaseUrl();
+
+    const [backendRes, datamuseSugRes] = await Promise.allSettled([
+      fetch(`${baseUrl}/api/Words/suggestions?q=${encodeURIComponent(cleanQuery)}`, {
+        signal: controller.signal,
+      }).then((r) => (r.ok ? (r.json() as Promise<string[]>) : [])),
+      fetch(`https://api.datamuse.com/sug?s=${encodeURIComponent(cleanQuery)}&max=8`, {
+        signal: controller.signal,
+      }).then((r) => (r.ok ? (r.json() as Promise<Array<{ word: string }>>) : [])),
+    ]);
+
+    clearTimeout(timeoutId);
+
+    const recentMatches = recentSearches
+      .map((s) => s.trim().toLowerCase())
+      .filter((s) => s.startsWith(cleanQuery) && s !== cleanQuery);
+
+    const backendWords = backendRes.status === 'fulfilled' ? backendRes.value : [];
+    const sugWords =
+      datamuseSugRes.status === 'fulfilled' ? datamuseSugRes.value.map((x) => x.word) : [];
+
+    const allCandidates = [
+      ...recentMatches,
+      ...backendWords,
+      ...sugWords,
+      ...Object.keys(MOCK_WORDS).filter((w) => w.startsWith(cleanQuery)),
+    ]
+      .map((w) => w.trim().toLowerCase())
+      .filter((w) => Boolean(w) && w !== cleanQuery);
+
+    const uniqueCandidates = Array.from(new Set(allCandidates));
+
+    // Separate genuine prefix completions (e.g. "app" -> "apple") from fuzzy typo corrections (e.g. "aple" -> "apple")
+    const prefixMatches = uniqueCandidates.filter((w) => w.startsWith(cleanQuery));
+    const fuzzyMatches = uniqueCandidates.filter((w) => !w.startsWith(cleanQuery));
+
+    // If the user typed a valid prefix (like "app" or "apple"), only show clean prefix completions
+    if (prefixMatches.length > 0) {
+      return prefixMatches.slice(0, 5).map((word) => ({
+        word,
+        isCorrection: false,
+      }));
+    }
+
+    // Otherwise, the user likely made a typo (like "aple"): return the top correction(s)
+    return fuzzyMatches.slice(0, 3).map((word, idx) => ({
+      word,
+      isCorrection: idx === 0,
+    }));
+  } catch {
+    clearTimeout(timeoutId);
+    return [];
+  }
+}
+
+/**
+ * Finds the best "Did you mean?" spelling suggestion when a searched term is not found (e.g. "aple" -> "apple").
+ */
+export async function fetchDidYouMean(term: string): Promise<string | null> {
+  const cleanTerm = term.trim().toLowerCase();
+  if (cleanTerm.length < 2 || cleanTerm.length > MAX_SEARCH_LENGTH) {
+    return null;
+  }
+
+  try {
+    const suggestions = await fetchWordSuggestions(cleanTerm);
+    const best = suggestions.find((s) => s.word !== cleanTerm);
+    return best ? best.word : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function lookupWord(term: string): Promise<WordLookupResponseDto> {
   const cleanTerm = term.trim().toLowerCase();
 

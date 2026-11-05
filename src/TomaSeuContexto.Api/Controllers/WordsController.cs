@@ -8,7 +8,6 @@ using TomaSeuContexto.Application.Services;
 
 [ApiController]
 [Route("api/[controller]")]
-[EnableRateLimiting("SearchPolicy")]
 public class WordsController : ControllerBase
 {
     private readonly IWordLookupService _wordLookupService;
@@ -19,12 +18,29 @@ public class WordsController : ControllerBase
     }
 
     /// <summary>
+    /// Returns autocomplete and spell-correction suggestions from the local vocabulary repository.
+    /// </summary>
+    [HttpGet("suggestions")]
+    [ProducesResponseType(typeof(List<string>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetSuggestions([FromQuery] string? q, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(q) || q.Trim().Length < 2 || q.Trim().Length > WordLookupService.MaxTermLength)
+        {
+            return Ok(new List<string>());
+        }
+
+        var suggestions = await _wordLookupService.GetSuggestionsAsync(q, maxResults: 6, cancellationToken);
+        return Ok(suggestions);
+    }
+
+    /// <summary>
     /// Looks up a vocabulary term and retrieves its phonetic, part-of-speech grouped translations, and contextual sentences.
     /// </summary>
     /// <param name="term">The vocabulary word or multi-word expression.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Word lookup response containing translations and example sentences.</returns>
     [HttpGet("{term}")]
+    [EnableRateLimiting("SearchPolicy")]
     [ProducesResponseType(typeof(WordLookupResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
