@@ -32,7 +32,6 @@ import { WordCard } from './src/components/WordCard';
 import { SentenceCard } from './src/components/SentenceCard';
 import { EmptyState } from './src/components/EmptyState';
 import { SavedWordsModal } from './src/components/SavedWordsModal';
-import { ConfigModal } from './src/components/ConfigModal';
 
 export default function App() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -46,7 +45,6 @@ export default function App() {
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
   const [isSavedModalOpen, setIsSavedModalOpen] = useState(false);
-  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -137,7 +135,6 @@ export default function App() {
         <Header
           savedCount={savedWords.length}
           onOpenSaved={() => setIsSavedModalOpen(true)}
-          onOpenSettings={() => setIsConfigModalOpen(true)}
         />
 
         {/* Persistent Search Bar */}
@@ -236,11 +233,6 @@ export default function App() {
         savedWords={savedWords}
         onSelectWord={handleSelectFromModalOrHistory}
         onRemoveWord={handleRemoveSavedWord}
-      />
-
-      <ConfigModal
-        visible={isConfigModalOpen}
-        onClose={() => setIsConfigModalOpen(false)}
       />
     </SafeAreaView>
   );

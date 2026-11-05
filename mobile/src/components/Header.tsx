@@ -5,11 +5,10 @@ import { colors } from '../theme/colors';
 
 interface HeaderProps {
   onOpenSaved: () => void;
-  onOpenSettings: () => void;
   savedCount: number;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenSaved, onOpenSettings, savedCount }) => {
+export const Header: React.FC<HeaderProps> = ({ onOpenSaved, savedCount }) => {
   return (
     <View style={styles.container}>
       <View style={styles.brandContainer}>
@@ -35,15 +34,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSaved, onOpenSettings, sav
               <Text style={styles.badgeText}>{savedCount > 99 ? '99+' : savedCount}</Text>
             </View>
           )}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.iconButton}
-          onPress={onOpenSettings}
-          accessibilityLabel="Configurações da API"
-          activeOpacity={0.7}
-        >
-          <Ionicons name="settings-outline" size={20} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
     </View>

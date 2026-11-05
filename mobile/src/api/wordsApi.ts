@@ -113,7 +113,7 @@ export async function lookupWord(term: string): Promise<WordLookupResponseDto> {
     }
 
     throw new Error(
-      `Não foi possível conectar à API em ${baseUrl}. Inicie o backend .NET ou configure a URL da API nas configurações.`
+      `Não foi possível conectar ao servidor. Verifique sua conexão com a internet ou tente novamente mais tarde.`
     );
   }
 }
