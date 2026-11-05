@@ -1,4 +1,4 @@
-﻿namespace TomaSeuContexto.Infrastructure.Services;
+namespace TomaSeuContexto.Infrastructure.Services;
 
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -38,8 +38,8 @@ public class GroqService : IGroqService
 
         if (string.IsNullOrWhiteSpace(apiKey))
         {
-            _logger.LogWarning("Groq API key is not configured in appsettings ('Groq:ApiKey') or environment variable ('GROQ_API_KEY'). Skipping Groq query for term '{Term}'.", term);
-            return null;
+            _logger.LogError("Groq API key is not configured in appsettings ('Groq:ApiKey') or environment variable ('GROQ_API_KEY'). Cannot query term '{Term}'.", term);
+            throw new AiServiceUnavailableException("Groq API key is not configured.");
         }
 
         try
@@ -67,7 +67,7 @@ public class GroqService : IGroqService
             {
                 var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
                 _logger.LogError("Groq API call returned HTTP {StatusCode}: {ErrorBody}", response.StatusCode, errorBody);
-                return null;
+                throw new AiServiceUnavailableException($"Failed to communicate with the AI provider (HTTP {(int)response.StatusCode}).");
             }
 
             var responseJson = await response.Content.ReadFromJsonAsync<GroqChatCompletionResponse>(
@@ -77,14 +77,14 @@ public class GroqService : IGroqService
             if (string.IsNullOrWhiteSpace(rawContent))
             {
                 _logger.LogWarning("Groq API returned an empty completion content for term '{Term}'.", term);
-                return null;
+                throw new AiServiceUnavailableException("The AI provider returned an empty response.");
             }
 
             var groqWord = JsonSerializer.Deserialize<GroqWordResponse>(rawContent, JsonOptions);
             if (groqWord is null)
             {
                 _logger.LogWarning("Failed to deserialize Groq response into GroqWordResponse for term '{Term}'.", term);
-                return null;
+                throw new AiServiceUnavailableException("Failed to parse the response from the AI provider.");
             }
 
             var termToUse = string.IsNullOrWhiteSpace(groqWord.Term) ? term : groqWord.Term;
@@ -99,6 +99,12 @@ public class GroqService : IGroqService
                 .Where(c => c.Translations.Count > 0)
                 .ToList();
 
+            if (translationsByPos.Count == 0)
+            {
+                _logger.LogInformation("Groq API returned no valid translations for term '{Term}'. Treating as word not found.", term);
+                return null;
+            }
+
             var sentences = groqWord.Sentences
                 .Select(s => new SentencePairDto(CleanWhitespace(s.En), CleanWhitespace(s.Pt)))
                 .Where(s => !string.IsNullOrWhiteSpace(s.En) && !string.IsNullOrWhiteSpace(s.Pt))
@@ -111,10 +117,18 @@ public class GroqService : IGroqService
                 sentences
             );
         }
+        catch (AiServiceUnavailableException)
+        {
+            throw;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Exception occurred while querying Groq API for term '{Term}': {Message}", term, ex.Message);
-            return null;
+            throw new AiServiceUnavailableException("An unexpected error occurred while communicating with the AI provider.", ex);
         }
     }
 

@@ -1,9 +1,13 @@
-﻿namespace TomaSeuContexto.UnitTests.Controllers;
+namespace TomaSeuContexto.UnitTests.Controllers;
 
+using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
 using TomaSeuContexto.Api.Controllers;
+using TomaSeuContexto.Api.Middlewares;
+using TomaSeuContexto.Application.Common;
 using TomaSeuContexto.Application.DTOs;
 using TomaSeuContexto.Application.Services;
 using TomaSeuContexto.Infrastructure.Repositories;
@@ -61,6 +65,34 @@ public class WordsControllerTests
         problem.Title.ShouldBe("Word Not Found");
         problem.Detail.ShouldNotBeNull();
         problem.Detail.ShouldContain("unknownphrasehere");
+    }
+
+    [Fact]
+    public async Task GetByTerm_WhenGroqThrowsAiServiceUnavailable_MiddlewareShouldReturn503ServiceUnavailable()
+    {
+        // Arrange
+        _fakeGroq.Handler = _ => throw new AiServiceUnavailableException("Failed to communicate with the AI provider (HTTP 401).");
+
+        var context = new DefaultHttpContext();
+        context.Request.Path = "/api/Words/strangeness";
+        context.Response.Body = new MemoryStream();
+
+        var middleware = new GlobalExceptionHandlerMiddleware(
+            async _ => await _controller.GetByTerm("strangeness", CancellationToken.None),
+            NullLogger<GlobalExceptionHandlerMiddleware>.Instance);
+
+        // Act
+        await middleware.InvokeAsync(context);
+
+        // Assert
+        context.Response.StatusCode.ShouldBe(StatusCodes.Status503ServiceUnavailable);
+        context.Response.Body.Seek(0, SeekOrigin.Begin);
+        var problem = await JsonSerializer.DeserializeAsync<ProblemDetails>(context.Response.Body);
+        problem.ShouldNotBeNull();
+        problem.Status.ShouldBe(StatusCodes.Status503ServiceUnavailable);
+        problem.Title.ShouldBe("AI Service Unavailable");
+        problem.Detail.ShouldNotBeNull();
+        problem.Detail.ShouldContain("401");
     }
 
     [Theory]

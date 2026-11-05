@@ -73,12 +73,13 @@ export async function lookupWord(term: string): Promise<WordLookupResponseDto> {
   const cleanTerm = term.trim().toLowerCase();
   const baseUrl = await getApiBaseUrl();
 
+  let response: Response;
   try {
     const controller = new AbortController();
     // 45s timeout to comfortably accommodate free-tier cloud cold starts and LLM generation
     const timeoutId = setTimeout(() => controller.abort(), 45000);
 
-    const response = await fetch(`${baseUrl}/api/Words/${encodeURIComponent(cleanTerm)}`, {
+    response = await fetch(`${baseUrl}/api/Words/${encodeURIComponent(cleanTerm)}`, {
       method: 'GET',
       headers: {
         Accept: 'application/json',
@@ -87,17 +88,6 @@ export async function lookupWord(term: string): Promise<WordLookupResponseDto> {
     });
 
     clearTimeout(timeoutId);
-
-    if (response.ok) {
-      const data: WordLookupResponseDto = await response.json();
-      return data;
-    }
-
-    if (response.status === 404) {
-      throw new Error(`A palavra "${cleanTerm}" não foi encontrada no vocabulário.`);
-    }
-
-    throw new Error(`Erro no servidor (status ${response.status})`);
   } catch (err: any) {
     // If backend is not running or network request failed, check if mock word exists
     if (MOCK_WORDS[cleanTerm]) {
@@ -105,15 +95,30 @@ export async function lookupWord(term: string): Promise<WordLookupResponseDto> {
     }
 
     if (err.name === 'AbortError') {
-      throw new Error(`O servidor na nuvem demorou para responder (comum ao acordar da hibernação). Por favor, tente novamente agora!`);
-    }
-
-    if (err.message && err.message.includes('não foi encontrada')) {
-      throw err;
+      throw new Error(
+        'O servidor na nuvem demorou para responder (comum ao acordar da hibernação). Por favor, tente novamente agora!'
+      );
     }
 
     throw new Error(
-      `Não foi possível conectar ao servidor. Verifique sua conexão com a internet ou tente novamente mais tarde.`
+      'Não foi possível conectar ao servidor. Verifique sua conexão com a internet ou tente novamente mais tarde.'
     );
   }
+
+  if (response.ok) {
+    const data: WordLookupResponseDto = await response.json();
+    return data;
+  }
+
+  if (response.status === 404) {
+    throw new Error(`A palavra "${cleanTerm}" não foi encontrada no vocabulário.`);
+  }
+
+  if (response.status === 502 || response.status === 503) {
+    throw new Error(
+      'O serviço de inteligência artificial está temporariamente indisponível ou com falha de comunicação. Tente novamente em instantes.'
+    );
+  }
+
+  throw new Error(`Erro no servidor (status ${response.status}). Tente novamente mais tarde.`);
 }

@@ -1,4 +1,4 @@
-﻿namespace TomaSeuContexto.UnitTests.Infrastructure;
+namespace TomaSeuContexto.UnitTests.Infrastructure;
 
 using System.Net;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -11,7 +11,7 @@ using Xunit;
 public class GroqServiceTests
 {
     [Fact]
-    public async Task QueryTermAsync_WhenApiKeyIsEmpty_ShouldReturnNullWithoutCallingHttp()
+    public async Task QueryTermAsync_WhenApiKeyIsEmpty_ShouldThrowAiServiceUnavailableExceptionWithoutCallingHttp()
     {
         // Arrange
         var handler = new TestHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
@@ -23,12 +23,99 @@ public class GroqServiceTests
 
         var service = new GroqService(httpClient, options, NullLogger<GroqService>.Instance);
 
+        // Act & Assert
+        var previousEnvKey = Environment.GetEnvironmentVariable("GROQ_API_KEY");
+        try
+        {
+            Environment.SetEnvironmentVariable("GROQ_API_KEY", null);
+            await Should.ThrowAsync<AiServiceUnavailableException>(() => service.QueryTermAsync("strangeness"));
+            handler.CallCount.ShouldBe(0);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GROQ_API_KEY", previousEnvKey);
+        }
+    }
+
+    [Fact]
+    public async Task QueryTermAsync_WhenApiReturnsErrorStatus_ShouldThrowAiServiceUnavailableException()
+    {
+        // Arrange
+        var handler = new TestHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized)
+        {
+            Content = new StringContent("{\"error\":{\"message\":\"Invalid API Key\"}}")
+        });
+
+        var httpClient = new HttpClient(handler);
+        var options = Options.Create(new GroqOptions
+        {
+            ApiKey = "gsk_invalid_key",
+            Endpoint = "https://api.groq.com/openai/v1/chat/completions"
+        });
+
+        var service = new GroqService(httpClient, options, NullLogger<GroqService>.Instance);
+
+        // Act & Assert
+        var ex = await Should.ThrowAsync<AiServiceUnavailableException>(() => service.QueryTermAsync("strangeness"));
+        ex.Message.ShouldContain("401");
+        handler.CallCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task QueryTermAsync_WhenHttpClientThrowsNetworkException_ShouldThrowAiServiceUnavailableException()
+    {
+        // Arrange
+        var handler = new TestHttpMessageHandler(_ => throw new HttpRequestException("Connection refused"));
+        var httpClient = new HttpClient(handler);
+        var options = Options.Create(new GroqOptions
+        {
+            ApiKey = "gsk_testkey12345",
+            Endpoint = "https://api.groq.com/openai/v1/chat/completions"
+        });
+
+        var service = new GroqService(httpClient, options, NullLogger<GroqService>.Instance);
+
+        // Act & Assert
+        await Should.ThrowAsync<AiServiceUnavailableException>(() => service.QueryTermAsync("strangeness"));
+        handler.CallCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task QueryTermAsync_WhenGroqReturnsEmptyCategories_ShouldReturnNull()
+    {
+        // Arrange
+        var mockJsonContent = """
+        {
+          "choices": [
+            {
+              "message": {
+                "content": "{\"term\": \"nonexistentwordxyz\", \"phonetic\": \"\", \"categories\": [], \"sentences\": []}"
+              }
+            }
+          ]
+        }
+        """;
+
+        var handler = new TestHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(mockJsonContent, System.Text.Encoding.UTF8, "application/json")
+        });
+
+        var httpClient = new HttpClient(handler);
+        var options = Options.Create(new GroqOptions
+        {
+            ApiKey = "gsk_testkey12345",
+            Endpoint = "https://api.groq.com/openai/v1/chat/completions"
+        });
+
+        var service = new GroqService(httpClient, options, NullLogger<GroqService>.Instance);
+
         // Act
-        var result = await service.QueryTermAsync("strangeness");
+        var result = await service.QueryTermAsync("nonexistentwordxyz");
 
         // Assert
         result.ShouldBeNull();
-        handler.CallCount.ShouldBe(0);
+        handler.CallCount.ShouldBe(1);
     }
 
     [Fact]

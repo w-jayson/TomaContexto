@@ -1,4 +1,4 @@
-﻿namespace TomaSeuContexto.Api.Controllers;
+namespace TomaSeuContexto.Api.Controllers;
 
 using Microsoft.AspNetCore.Mvc;
 using TomaSeuContexto.Application.DTOs;
@@ -25,6 +25,7 @@ public class WordsController : ControllerBase
     [ProducesResponseType(typeof(WordLookupResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> GetByTerm([FromRoute] string term, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(term))
