@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import {
   View,
   TextInput,
@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { ThemeColors } from '../theme/colors';
 import { useResponsive } from '../utils/useResponsive';
-import { MAX_SEARCH_LENGTH } from '../api/wordsApi';
+import { MAX_SEARCH_LENGTH, fetchWordSuggestions, WordSuggestion } from '../api/wordsApi';
 
 interface SearchBarProps {
   value: string;
@@ -39,8 +39,73 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   const isNearLimit = value.length >= Math.floor(maxLength * 0.75);
   const isAtLimit = value.length >= maxLength;
 
+  const [suggestions, setSuggestions] = useState<WordSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [typingTick, setTypingTick] = useState(0);
+  const requestSeqRef = useRef(0);
+
+  // Close suggestions whenever a search starts loading
+  useEffect(() => {
+    if (isLoading) {
+      requestSeqRef.current += 1;
+      setShowSuggestions(false);
+      setSuggestions([]);
+    }
+  }, [isLoading]);
+
+  // Only fetch suggestions when the user actively types in the input (typingTick increments)
+  useEffect(() => {
+    if (typingTick === 0) {
+      return;
+    }
+
+    const trimmed = value.trim();
+    if (trimmed.length < 2) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    const currentSeq = ++requestSeqRef.current;
+
+    const timer = setTimeout(async () => {
+      const results = await fetchWordSuggestions(trimmed, recentSearches);
+      // Ignore stale responses if user already submitted, selected, or typed again
+      if (currentSeq !== requestSeqRef.current) {
+        return;
+      }
+      setSuggestions(results);
+      setShowSuggestions(results.length > 0);
+    }, 220);
+
+    return () => clearTimeout(timer);
+  }, [typingTick]);
+
   const handleChangeText = (text: string) => {
-    onChangeText(text.slice(0, maxLength));
+    const sliced = text.slice(0, maxLength);
+    onChangeText(sliced);
+    if (!sliced.trim()) {
+      requestSeqRef.current += 1;
+      setShowSuggestions(false);
+      setSuggestions([]);
+    } else {
+      setTypingTick((prev) => prev + 1);
+    }
+  };
+
+  const handleSelectSuggestion = (word: string) => {
+    requestSeqRef.current += 1;
+    setShowSuggestions(false);
+    setSuggestions([]);
+    onChangeText(word);
+    onSubmit(word);
+  };
+
+  const handleManualSubmit = () => {
+    requestSeqRef.current += 1;
+    setShowSuggestions(false);
+    setSuggestions([]);
+    onSubmit();
   };
 
   return (
@@ -63,7 +128,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             placeholderTextColor={colors.textMuted}
             value={value}
             onChangeText={handleChangeText}
-            onSubmitEditing={() => onSubmit()}
+            onSubmitEditing={handleManualSubmit}
             returnKeyType="search"
             autoCapitalize="none"
             autoCorrect={false}
@@ -79,7 +144,11 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           {value.length > 0 && (
             <TouchableOpacity
               style={styles.clearButton}
-              onPress={() => onChangeText('')}
+              onPress={() => {
+                setShowSuggestions(false);
+                setSuggestions([]);
+                onChangeText('');
+              }}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <Ionicons name="close-circle" size={isWide ? 20 : 18} color={colors.textSecondary} />
@@ -94,7 +163,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 
           <TouchableOpacity
             style={[styles.submitButton, !value.trim() && styles.submitButtonDisabled]}
-            onPress={() => onSubmit()}
+            onPress={handleManualSubmit}
             disabled={isLoading || !value.trim()}
             activeOpacity={0.8}
           >
@@ -106,6 +175,38 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           </TouchableOpacity>
         </View>
 
+        {/* Autocomplete & Spell-Correction Suggestions Dropdown */}
+        {showSuggestions && suggestions.length > 0 && (
+          <View style={styles.suggestionsDropdown}>
+            {suggestions.map((item, idx) => (
+              <TouchableOpacity
+                key={item.word}
+                style={[
+                  styles.suggestionItem,
+                  idx < suggestions.length - 1 && styles.suggestionItemBorder,
+                ]}
+                onPress={() => handleSelectSuggestion(item.word)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.suggestionLeft}>
+                  <Ionicons
+                    name={item.isCorrection ? 'sparkles-outline' : 'search-outline'}
+                    size={16}
+                    color={item.isCorrection ? colors.primary : colors.textSecondary}
+                  />
+                  <Text style={styles.suggestionWord}>{item.word}</Text>
+                </View>
+
+                {item.isCorrection && (
+                  <View style={styles.correctionBadge}>
+                    <Text style={styles.correctionBadgeText}>Você quis dizer?</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
         {/* Desktop Quick Chips for Recent Searches */}
         {isWide && recentSearches.length > 0 && onSelectRecent && (
           <View style={styles.recentRow}>
@@ -115,7 +216,12 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                 <TouchableOpacity
                   key={term}
                   style={styles.chip}
-                  onPress={() => onSelectRecent(term)}
+                  onPress={() => {
+                    requestSeqRef.current += 1;
+                    setShowSuggestions(false);
+                    setSuggestions([]);
+                    onSelectRecent(term);
+                  }}
                   activeOpacity={0.7}
                 >
                   <Text style={styles.chipText}>{term}</Text>
@@ -207,6 +313,54 @@ const createStyles = (colors: ThemeColors, isWide: boolean, isDesktop: boolean) 
     },
     submitButtonDisabled: {
       opacity: 0.45,
+    },
+    suggestionsDropdown: {
+      marginTop: 6,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      borderRadius: 14,
+      overflow: 'hidden',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.08,
+      shadowRadius: 10,
+      elevation: 4,
+    },
+    suggestionItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: isWide ? 18 : 14,
+      paddingVertical: isWide ? 12 : 10,
+      ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+    },
+    suggestionItemBorder: {
+      borderBottomWidth: 1,
+      borderBottomColor: colors.surfaceBorder,
+    },
+    suggestionLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    suggestionWord: {
+      fontSize: isWide ? 15 : 14,
+      fontWeight: '600',
+      color: colors.textPrimary,
+    },
+    correctionBadge: {
+      backgroundColor: colors.primarySubtle,
+      borderWidth: 1,
+      borderColor: colors.primaryBorder,
+      borderRadius: 6,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+    },
+    correctionBadgeText: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: colors.primary,
     },
     recentRow: {
       flexDirection: 'row',

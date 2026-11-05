@@ -30,7 +30,7 @@ public class WordLookupService : IWordLookupService
             return null;
         }
 
-        // 1. Check local repository (Cache hit)
+        // 1. Check local repository (Exact cache hit)
         var cachedWord = await _wordRepository.GetByTermAsync(normalizedTerm, cancellationToken);
         if (cachedWord is not null)
         {
@@ -47,7 +47,14 @@ public class WordLookupService : IWordLookupService
             return null;
         }
 
-        // 4. Combine existing database sentences with new sentences from Groq (avoiding duplicates)
+        // If Groq tried to silently substitute a different word (e.g. "apple" for "aple"), reject silent substitution
+        var resolvedTerm = groqResult.Term.Trim().ToLowerInvariant();
+        if (!string.Equals(resolvedTerm, normalizedTerm, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        // 5. Combine existing database sentences with new sentences from Groq (avoiding duplicates)
         var resolvedSentences = new List<Sentence>(existingSentences);
         foreach (var s in groqResult.ExampleSentences)
         {
@@ -63,12 +70,12 @@ public class WordLookupService : IWordLookupService
             }
         }
 
-        // 5. Cache the newly discovered word in local repository for future instant lookups
+        // 6. Cache the newly discovered word in local repository for future instant lookups
         var wordId = Guid.NewGuid();
         var wordEntity = new Word
         {
             Id = wordId,
-            Term = groqResult.Term,
+            Term = resolvedTerm,
             Phonetic = groqResult.Phonetic,
             CreatedAt = DateTime.UtcNow,
             Translations = groqResult.TranslationsByPos
@@ -86,6 +93,16 @@ public class WordLookupService : IWordLookupService
         await _wordRepository.AddAsync(wordEntity, cancellationToken);
 
         return MapToResponseDto(wordEntity);
+    }
+
+    public async Task<List<string>> GetSuggestionsAsync(string query, int maxResults = 6, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(query) || query.Trim().Length > MaxTermLength)
+        {
+            return new List<string>();
+        }
+
+        return await _wordRepository.GetSuggestionsAsync(query.Trim(), maxResults, cancellationToken);
     }
 
     private static WordLookupResponseDto MapToResponseDto(Word word)

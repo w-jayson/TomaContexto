@@ -204,5 +204,44 @@ public class WordLookupServiceTests
         cached.ShouldNotBeNull();
         cached.Sentences.Count.ShouldBe(2);
     }
+
+    [Fact]
+    public async Task LookupTermAsync_WhenGroqSubstitutesDifferentWordForTypo_ShouldReturnNullInsteadOfAutoCorrecting()
+    {
+        // Arrange
+        _fakeGroq.Handler = _ => Task.FromResult<WordLookupResponseDto?>(new WordLookupResponseDto(
+            "apple",
+            "/ˈæp.əl/",
+            new List<TranslationGroupDto> { new("Substantivo", new List<string> { "maçã" }) },
+            new List<SentencePairDto> { new("An apple a day.", "Uma maçã por dia.") }
+        ));
+
+        // Act
+        var result = await _service.LookupTermAsync("aple");
+
+        // Assert
+        result.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task GetSuggestionsAsync_WithTypoOrPrefix_ShouldReturnMatchingCachedWords()
+    {
+        // Arrange
+        var appleId = Guid.NewGuid();
+        await _repository.AddAsync(new Word
+        {
+            Id = appleId,
+            Term = "apple",
+            Phonetic = "/ˈæp.əl/"
+        });
+
+        // Act
+        var typoSuggestions = await _service.GetSuggestionsAsync("aple");
+        var prefixSuggestions = await _service.GetSuggestionsAsync("break");
+
+        // Assert
+        typoSuggestions.ShouldContain("apple");
+        prefixSuggestions.ShouldContain("breakthrough");
+    }
 }
 

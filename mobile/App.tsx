@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import { ThemeColors } from './src/theme/colors';
 import { WordLookupResponseDto } from './src/types/word';
-import { lookupWord } from './src/api/wordsApi';
+import { lookupWord, fetchDidYouMean } from './src/api/wordsApi';
 import { getRecentSearches, addRecentSearch } from './src/utils/storage';
 import { useResponsive } from './src/utils/useResponsive';
 
@@ -36,6 +36,7 @@ function MainApp() {
   );
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [didYouMeanTerm, setDidYouMeanTerm] = useState<string | null>(null);
   const [wordData, setWordData] = useState<WordLookupResponseDto | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('Minerando sentenças no contexto i+1...');
@@ -71,15 +72,20 @@ function MainApp() {
     Keyboard.dismiss();
     setIsLoading(true);
     setErrorMessage(null);
+    setDidYouMeanTerm(null);
 
     try {
       const data = await lookupWord(target);
       setWordData(data);
-      const updatedRecent = await addRecentSearch(target);
+      const updatedRecent = await addRecentSearch(data.term);
       setRecentSearches(updatedRecent);
     } catch (err: any) {
       setWordData(null);
       setErrorMessage(err.message || 'Ocorreu um erro ao buscar a palavra.');
+      const suggestion = await fetchDidYouMean(target);
+      if (suggestion && suggestion.toLowerCase() !== target.toLowerCase()) {
+        setDidYouMeanTerm(suggestion);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -149,6 +155,23 @@ function MainApp() {
                   <Text style={styles.errorTitle}>Atenção</Text>
                   <Text style={styles.errorDesc}>{errorMessage}</Text>
                 </View>
+
+                {didYouMeanTerm && (
+                  <TouchableOpacity
+                    style={styles.didYouMeanButton}
+                    onPress={() => {
+                      setSearchTerm(didYouMeanTerm);
+                      handleSearch(didYouMeanTerm);
+                    }}
+                    activeOpacity={0.75}
+                  >
+                    <Ionicons name="sparkles-outline" size={16} color={colors.primary} />
+                    <Text style={styles.didYouMeanText}>
+                      Você quis dizer: <Text style={styles.didYouMeanWord}>{didYouMeanTerm}</Text>?
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
                 <TouchableOpacity
                   style={styles.retryButton}
                   onPress={() => handleSearch()}
@@ -269,6 +292,29 @@ const createStyles = (
       width: '100%',
       maxWidth: isDesktop ? 1180 : 760,
       paddingHorizontal: isDesktop ? 32 : 0,
+    },
+    didYouMeanButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginTop: 6,
+      backgroundColor: colors.primarySubtle,
+      borderWidth: 1,
+      borderColor: colors.primaryBorder,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 10,
+      ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+    },
+    didYouMeanText: {
+      color: colors.textPrimary,
+      fontSize: 14,
+      fontWeight: '500',
+    },
+    didYouMeanWord: {
+      color: colors.primary,
+      fontWeight: '700',
+      textDecorationLine: 'underline',
     },
     desktopLayout: {
       flexDirection: 'row',

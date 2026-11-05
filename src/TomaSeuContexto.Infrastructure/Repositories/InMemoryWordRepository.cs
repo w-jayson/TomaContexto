@@ -1,6 +1,7 @@
-﻿namespace TomaSeuContexto.Infrastructure.Repositories;
+namespace TomaSeuContexto.Infrastructure.Repositories;
 
 using System.Collections.Concurrent;
+using TomaSeuContexto.Application.Common;
 using TomaSeuContexto.Application.Interfaces;
 using TomaSeuContexto.Domain.Entities;
 using TomaSeuContexto.Infrastructure.MockData;
@@ -31,6 +32,68 @@ public class InMemoryWordRepository : IWordRepository
         var normalizedKey = Normalize(term);
         _words.TryGetValue(normalizedKey, out var word);
         return Task.FromResult(word);
+    }
+
+    public Task<Word?> FindClosestByTermAsync(string term, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(term))
+        {
+            return Task.FromResult<Word?>(null);
+        }
+
+        var cleanTerm = Normalize(term);
+        var maxDistance = FuzzyMatcher.GetMaxAllowedDistance(cleanTerm);
+        if (maxDistance <= 0)
+        {
+            return Task.FromResult<Word?>(null);
+        }
+
+        var bestMatch = _words.Values
+            .Select(w => new { Word = w, Distance = FuzzyMatcher.ComputeDistance(cleanTerm, w.Term) })
+            .Where(x => x.Distance <= maxDistance)
+            .OrderBy(x => x.Distance)
+            .ThenBy(x => Math.Abs(x.Word.Term.Length - cleanTerm.Length))
+            .Select(x => x.Word)
+            .FirstOrDefault();
+
+        return Task.FromResult(bestMatch);
+    }
+
+    public Task<List<string>> GetSuggestionsAsync(string query, int maxResults = 6, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(query) || query.Trim().Length < 2)
+        {
+            return Task.FromResult(new List<string>());
+        }
+
+        var cleanQuery = Normalize(query);
+        var maxDistance = Math.Max(1, FuzzyMatcher.GetMaxAllowedDistance(cleanQuery));
+
+        var suggestions = _words.Values
+            .Select(w => w.Term)
+            .Select(term =>
+            {
+                var startsWith = term.StartsWith(cleanQuery, StringComparison.OrdinalIgnoreCase);
+                var contains = !startsWith && term.Contains(cleanQuery, StringComparison.OrdinalIgnoreCase);
+                var distance = FuzzyMatcher.ComputeDistance(cleanQuery, term);
+                var isFuzzyMatch = distance <= maxDistance;
+
+                var rank = startsWith ? 0
+                    : isFuzzyMatch ? 1 + distance
+                    : contains ? 5
+                    : int.MaxValue;
+
+                return new { Term = term, Rank = rank, Distance = distance };
+            })
+            .Where(x => x.Rank < int.MaxValue)
+            .OrderBy(x => x.Rank)
+            .ThenBy(x => Math.Abs(x.Term.Length - cleanQuery.Length))
+            .ThenBy(x => x.Term)
+            .Take(maxResults)
+            .Select(x => x.Term)
+            .ToList();
+
+        return Task.FromResult(suggestions);
     }
 
     public Task<List<Sentence>> FindSentencesContainingTermAsync(string term, CancellationToken cancellationToken = default)
