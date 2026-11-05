@@ -3,15 +3,17 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { ThemeColors } from '../theme/colors';
+import { useResponsive } from '../utils/useResponsive';
 
 export const EmptyState: React.FC = () => {
   const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const { isWide, isDesktop } = useResponsive();
+  const styles = useMemo(() => createStyles(colors, isWide, isDesktop), [colors, isWide, isDesktop]);
 
   return (
     <View style={styles.container}>
       <View style={styles.iconCircle}>
-        <Ionicons name="book-outline" size={30} color={colors.primary} />
+        <Ionicons name="book-outline" size={isWide ? 38 : 30} color={colors.primary} />
       </View>
 
       <Text style={styles.title}>Mineração de Sentenças</Text>
@@ -24,70 +26,85 @@ export const EmptyState: React.FC = () => {
 
       <View style={styles.guideCard}>
         <Text style={styles.guideTitle}>Como funciona o TomaSeuContexto</Text>
-        
-        <View style={styles.stepRow}>
-          <View style={styles.stepNumber}>
-            <Text style={styles.stepNumberText}>1</Text>
-          </View>
-          <Text style={styles.stepText}>
-            Digite acima qualquer termo ou *phrasal verb* em inglês.
-          </Text>
-        </View>
 
-        <View style={styles.stepRow}>
-          <View style={styles.stepNumber}>
-            <Text style={styles.stepNumberText}>2</Text>
+        <View style={styles.stepsContainer}>
+          <View style={styles.stepItem}>
+            <View style={styles.stepNumber}>
+              <Text style={styles.stepNumberText}>1</Text>
+            </View>
+            <View style={styles.stepContent}>
+              <Text style={styles.stepHeading}>Busque qualquer termo</Text>
+              <Text style={styles.stepText}>
+                Digite qualquer palavra, verbo ou *phrasal verb* em inglês na barra acima.
+              </Text>
+            </View>
           </View>
-          <Text style={styles.stepText}>
-            Consulte a fonética internacional (IPA) e traduções por classe gramatical.
-          </Text>
-        </View>
 
-        <View style={styles.stepRow}>
-          <View style={styles.stepNumber}>
-            <Text style={styles.stepNumberText}>3</Text>
+          <View style={styles.stepItem}>
+            <View style={styles.stepNumber}>
+              <Text style={styles.stepNumberText}>2</Text>
+            </View>
+            <View style={styles.stepContent}>
+              <Text style={styles.stepHeading}>Análise Lexical & Fonética</Text>
+              <Text style={styles.stepText}>
+                Consulte transcrição fonética internacional (IPA) e traduções agrupadas por classe.
+              </Text>
+            </View>
           </View>
-          <Text style={styles.stepText}>
-            Examine sentenças reais com a palavra destacada e pratique com o áudio nativo.
-          </Text>
+
+          <View style={styles.stepItem}>
+            <View style={styles.stepNumber}>
+              <Text style={styles.stepNumberText}>3</Text>
+            </View>
+            <View style={styles.stepContent}>
+              <Text style={styles.stepHeading}>Contexto Real & Áudio</Text>
+              <Text style={styles.stepText}>
+                Examine sentenças reais de uso, ouça pronúncias nativas e salve termos no seu deck.
+              </Text>
+            </View>
+          </View>
         </View>
       </View>
     </View>
   );
 };
 
-const createStyles = (colors: ThemeColors) =>
+const createStyles = (colors: ThemeColors, isWide: boolean, isDesktop: boolean) =>
   StyleSheet.create({
     container: {
-      paddingHorizontal: 24,
-      paddingVertical: 36,
+      paddingHorizontal: isWide ? 32 : 24,
+      paddingVertical: isWide ? 44 : 36,
       alignItems: 'center',
+      maxWidth: isDesktop ? 960 : 760,
+      width: '100%',
+      alignSelf: 'center',
     },
     iconCircle: {
-      width: 64,
-      height: 64,
-      borderRadius: 20,
+      width: isWide ? 76 : 64,
+      height: isWide ? 76 : 64,
+      borderRadius: isWide ? 24 : 20,
       backgroundColor: colors.primarySubtle,
-      borderWidth: 1,
+      borderWidth: 1.5,
       borderColor: colors.primaryBorder,
       alignItems: 'center',
       justifyContent: 'center',
-      marginBottom: 16,
+      marginBottom: isWide ? 20 : 16,
     },
     title: {
-      fontSize: 22,
-      fontWeight: '700',
+      fontSize: isWide ? 28 : 22,
+      fontWeight: '800',
       color: colors.textPrimary,
-      marginBottom: 10,
+      marginBottom: isWide ? 12 : 10,
       textAlign: 'center',
-      letterSpacing: -0.3,
+      letterSpacing: -0.4,
     },
     description: {
-      fontSize: 14,
+      fontSize: isWide ? 16 : 14,
       color: colors.textSecondary,
       textAlign: 'center',
-      lineHeight: 22,
-      marginBottom: 28,
+      lineHeight: isWide ? 26 : 22,
+      marginBottom: isWide ? 36 : 28,
+      maxWidth: 680,
     },
     bold: {
       color: colors.textPrimary,
@@ -102,9 +119,14 @@ const createStyles = (colors: ThemeColors) =>
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
-      borderRadius: 16,
-      padding: 20,
-      gap: 16,
+      borderRadius: isWide ? 20 : 16,
+      padding: isWide ? 28 : 20,
+      gap: isWide ? 20 : 16,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.03,
+      shadowRadius: 8,
+      elevation: 2,
     },
     guideTitle: {
       fontSize: 13,
@@ -113,15 +135,25 @@ const createStyles = (colors: ThemeColors) =>
       textTransform: 'uppercase',
       letterSpacing: 0.6,
     },
-    stepRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
+    stepsContainer: {
+      flexDirection: isDesktop ? 'row' : 'column',
+      gap: isDesktop ? 20 : 16,
+    },
+    stepItem: {
+      flex: isDesktop ? 1 : undefined,
+      flexDirection: isDesktop ? 'column' : 'row',
+      alignItems: isDesktop ? 'flex-start' : 'center',
       gap: 12,
+      backgroundColor: isDesktop ? colors.surfaceHover : 'transparent',
+      borderRadius: isDesktop ? 14 : 0,
+      padding: isDesktop ? 16 : 0,
+      borderWidth: isDesktop ? 1 : 0,
+      borderColor: isDesktop ? colors.surfaceBorder : 'transparent',
     },
     stepNumber: {
-      width: 24,
-      height: 24,
-      borderRadius: 12,
+      width: isWide ? 28 : 24,
+      height: isWide ? 28 : 24,
+      borderRadius: isWide ? 14 : 12,
       backgroundColor: colors.primarySubtle,
       borderWidth: 1,
       borderColor: colors.primaryBorder,
@@ -129,14 +161,22 @@ const createStyles = (colors: ThemeColors) =>
       justifyContent: 'center',
     },
     stepNumberText: {
-      fontSize: 12,
+      fontSize: isWide ? 13 : 12,
       fontWeight: '700',
       color: colors.primary,
     },
-    stepText: {
+    stepContent: {
       flex: 1,
-      fontSize: 13,
+    },
+    stepHeading: {
+      fontSize: isWide ? 15 : 14,
+      fontWeight: '700',
       color: colors.textPrimary,
-      lineHeight: 18,
+      marginBottom: 3,
+    },
+    stepText: {
+      fontSize: isWide ? 13 : 13,
+      color: colors.textSecondary,
+      lineHeight: isWide ? 20 : 18,
     },
   });
