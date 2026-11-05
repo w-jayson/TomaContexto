@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -14,7 +14,8 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 
-import { colors } from './src/theme/colors';
+import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
+import { ThemeColors } from './src/theme/colors';
 import { WordLookupResponseDto, SavedWord } from './src/types/word';
 import { lookupWord } from './src/api/wordsApi';
 import {
@@ -33,7 +34,10 @@ import { SentenceCard } from './src/components/SentenceCard';
 import { EmptyState } from './src/components/EmptyState';
 import { SavedWordsModal } from './src/components/SavedWordsModal';
 
-export default function App() {
+function MainApp() {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [wordData, setWordData] = useState<WordLookupResponseDto | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -128,7 +132,7 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="light" />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
 
       <View style={styles.appContainer}>
         {/* Main App Bar */}
@@ -238,96 +242,105 @@ export default function App() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#0A100E',
-    alignItems: 'center',
-    paddingTop: Platform.OS === 'android' ? 30 : 0,
-  },
-  appContainer: {
-    flex: 1,
-    width: '100%',
-    maxWidth: 580,
-    backgroundColor: colors.background,
-    borderLeftWidth: Platform.OS === 'web' ? 1 : 0,
-    borderRightWidth: Platform.OS === 'web' ? 1 : 0,
-    borderColor: colors.surfaceBorder,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 40,
-  },
-  loadingContainer: {
-    paddingVertical: 48,
-    alignItems: 'center',
-    gap: 12,
-  },
-  loadingText: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  errorBox: {
-    backgroundColor: colors.errorSubtle,
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
-    borderRadius: 16,
-    padding: 16,
-    marginHorizontal: 20,
-    marginVertical: 12,
-    alignItems: 'center',
-    gap: 8,
-  },
-  errorTextContainer: {
-    alignItems: 'center',
-  },
-  errorTitle: {
-    color: colors.error,
-    fontWeight: '700',
-    fontSize: 15,
-  },
-  errorDesc: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    textAlign: 'center',
-    marginTop: 4,
-    lineHeight: 18,
-  },
-  retryButton: {
-    marginTop: 8,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.surfaceBorder,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  retryText: {
-    color: colors.textPrimary,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  sentencesHeader: {
-    marginHorizontal: 20,
-    marginTop: 18,
-    marginBottom: 10,
-  },
-  sectionTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  sectionSubtitle: {
-    fontSize: 12,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
-});
+export default function App() {
+  return (
+    <ThemeProvider>
+      <MainApp />
+    </ThemeProvider>
+  );
+}
+
+const createStyles = (colors: ThemeColors, isDark: boolean) =>
+  StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: isDark ? '#0A100E' : '#E6EDE8',
+      alignItems: 'center',
+      paddingTop: Platform.OS === 'android' ? 30 : 0,
+    },
+    appContainer: {
+      flex: 1,
+      width: '100%',
+      maxWidth: 580,
+      backgroundColor: colors.background,
+      borderLeftWidth: Platform.OS === 'web' ? 1 : 0,
+      borderRightWidth: Platform.OS === 'web' ? 1 : 0,
+      borderColor: colors.surfaceBorder,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingBottom: 40,
+    },
+    loadingContainer: {
+      paddingVertical: 48,
+      alignItems: 'center',
+      gap: 12,
+    },
+    loadingText: {
+      color: colors.textSecondary,
+      fontSize: 14,
+      fontWeight: '500',
+    },
+    errorBox: {
+      backgroundColor: colors.errorSubtle,
+      borderWidth: 1,
+      borderColor: 'rgba(239, 68, 68, 0.3)',
+      borderRadius: 16,
+      padding: 16,
+      marginHorizontal: 20,
+      marginVertical: 12,
+      alignItems: 'center',
+      gap: 8,
+    },
+    errorTextContainer: {
+      alignItems: 'center',
+    },
+    errorTitle: {
+      color: colors.error,
+      fontWeight: '700',
+      fontSize: 15,
+    },
+    errorDesc: {
+      color: colors.textSecondary,
+      fontSize: 13,
+      textAlign: 'center',
+      marginTop: 4,
+      lineHeight: 18,
+    },
+    retryButton: {
+      marginTop: 8,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 8,
+    },
+    retryText: {
+      color: colors.textPrimary,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    sentencesHeader: {
+      marginHorizontal: 20,
+      marginTop: 18,
+      marginBottom: 10,
+    },
+    sectionTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    sectionTitle: {
+      fontSize: 17,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    sectionSubtitle: {
+      fontSize: 12,
+      color: colors.textMuted,
+      marginTop: 2,
+    },
+  });

@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Speech from 'expo-speech';
 import { SentencePairDto } from '../types/word';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
+import { ThemeColors } from '../theme/colors';
 
 interface SentenceCardProps {
   sentence: SentencePairDto;
@@ -12,6 +13,8 @@ interface SentenceCardProps {
 }
 
 export const SentenceCard: React.FC<SentenceCardProps> = ({ sentence, index, keyword }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [isPlaying, setIsPlaying] = useState(false);
 
   const speakSentence = async () => {
@@ -88,67 +91,69 @@ export const SentenceCard: React.FC<SentenceCardProps> = ({ sentence, index, key
   );
 };
 
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.surfaceBorder,
-    borderRadius: 16,
-    padding: 16,
-    marginHorizontal: 20,
-    marginBottom: 12,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  badge: {
-    backgroundColor: colors.primarySubtle,
-    borderWidth: 1,
-    borderColor: colors.primaryBorder,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  badgeText: {
-    color: colors.primary,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  speakerButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: colors.surfaceBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sentenceBox: {
-    marginBottom: 10,
-  },
-  sentenceEn: {
-    fontSize: 16,
-    color: colors.textPrimary,
-    lineHeight: 24,
-    fontWeight: '500',
-  },
-  highlightText: {
-    color: colors.targetToken,
-    fontWeight: '800',
-    backgroundColor: colors.targetTokenSubtle,
-    borderRadius: 4,
-  },
-  translationBox: {
-    borderTopWidth: 1,
-    borderTopColor: colors.surfaceBorder,
-    paddingTop: 8,
-  },
-  sentencePt: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    lineHeight: 20,
-    fontStyle: 'italic',
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    card: {
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      borderRadius: 16,
+      padding: 16,
+      marginHorizontal: 20,
+      marginBottom: 12,
+    },
+    headerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 10,
+    },
+    badge: {
+      backgroundColor: colors.primarySubtle,
+      borderWidth: 1,
+      borderColor: colors.primaryBorder,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 6,
+    },
+    badgeText: {
+      color: colors.primary,
+      fontSize: 11,
+      fontWeight: '700',
+    },
+    speakerButton: {
+      width: 32,
+      height: 32,
+      borderRadius: 8,
+      backgroundColor: colors.surfaceBorder,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    sentenceBox: {
+      marginBottom: 10,
+    },
+    sentenceEn: {
+      fontSize: 16,
+      color: colors.textPrimary,
+      lineHeight: 24,
+      fontWeight: '500',
+    },
+    highlightText: {
+      color: colors.targetToken,
+      fontWeight: '800',
+      backgroundColor: colors.targetTokenSubtle,
+      borderRadius: 4,
+      paddingHorizontal: 3,
+    },
+    translationBox: {
+      borderTopWidth: 1,
+      borderTopColor: colors.surfaceBorder,
+      paddingTop: 8,
+    },
+    sentencePt: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      lineHeight: 20,
+      fontStyle: 'italic',
+    },
+  });
