@@ -1,10 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Speech from 'expo-speech';
 import { WordLookupResponseDto } from '../types/word';
 import { useTheme } from '../theme/ThemeContext';
 import { ThemeColors } from '../theme/colors';
+import { useResponsive } from '../utils/useResponsive';
 
 interface WordCardProps {
   word: WordLookupResponseDto;
@@ -14,7 +15,8 @@ interface WordCardProps {
 
 export const WordCard: React.FC<WordCardProps> = ({ word, isSaved, onToggleSave }) => {
   const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const { isWide, isDesktop } = useResponsive();
+  const styles = useMemo(() => createStyles(colors, isWide, isDesktop), [colors, isWide, isDesktop]);
   const [isPlaying, setIsPlaying] = useState(false);
 
   const speakTerm = async () => {
@@ -56,10 +58,11 @@ export const WordCard: React.FC<WordCardProps> = ({ word, isSaved, onToggleSave 
                 style={styles.speakerButton}
                 onPress={speakTerm}
                 activeOpacity={0.7}
+                accessibilityLabel="Ouvir pronúncia"
               >
                 <Ionicons
                   name={isPlaying ? 'volume-high' : 'volume-medium-outline'}
-                  size={18}
+                  size={isWide ? 20 : 18}
                   color={colors.primary}
                 />
               </TouchableOpacity>
@@ -68,15 +71,24 @@ export const WordCard: React.FC<WordCardProps> = ({ word, isSaved, onToggleSave 
         </View>
 
         <TouchableOpacity
-          style={[styles.saveButton, isSaved && styles.saveButtonActive]}
+          style={[
+            styles.saveButton,
+            isSaved && styles.saveButtonActive,
+            isWide && styles.saveButtonWide,
+          ]}
           onPress={onToggleSave}
           activeOpacity={0.7}
         >
           <Ionicons
             name={isSaved ? 'bookmark' : 'bookmark-outline'}
-            size={20}
+            size={isWide ? 19 : 20}
             color={isSaved ? '#FFFFFF' : colors.textPrimary}
           />
+          {isWide && (
+            <Text style={[styles.saveButtonText, isSaved && styles.saveButtonTextActive]}>
+              {isSaved ? 'Salva no Deck' : 'Salvar Palavra'}
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -86,7 +98,12 @@ export const WordCard: React.FC<WordCardProps> = ({ word, isSaved, onToggleSave 
           const badgeColor = getPosColor(group.partOfSpeech);
           return (
             <View key={`${group.partOfSpeech}-${gIndex}`} style={styles.posBlock}>
-              <View style={[styles.posBadge, { borderColor: badgeColor, backgroundColor: `${badgeColor}18` }]}>
+              <View
+                style={[
+                  styles.posBadge,
+                  { borderColor: badgeColor, backgroundColor: `${badgeColor}18` },
+                ]}
+              >
                 <Text style={[styles.posBadgeText, { color: badgeColor }]}>
                   {group.partOfSpeech}
                 </Text>
@@ -107,22 +124,27 @@ export const WordCard: React.FC<WordCardProps> = ({ word, isSaved, onToggleSave 
   );
 };
 
-const createStyles = (colors: ThemeColors) =>
+const createStyles = (colors: ThemeColors, isWide: boolean, isDesktop: boolean) =>
   StyleSheet.create({
     card: {
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
-      borderRadius: 20,
-      padding: 20,
-      marginHorizontal: 20,
-      marginVertical: 10,
+      borderRadius: isWide ? 22 : 20,
+      padding: isWide ? 26 : 20,
+      marginHorizontal: isDesktop ? 0 : isWide ? 32 : 20,
+      marginVertical: isWide ? 14 : 10,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.03,
+      shadowRadius: 8,
+      elevation: 2,
     },
     topRow: {
       flexDirection: 'row',
       alignItems: 'flex-start',
       justifyContent: 'space-between',
-      paddingBottom: 16,
+      paddingBottom: isWide ? 20 : 16,
       borderBottomWidth: 1,
       borderBottomColor: colors.surfaceBorder,
     },
@@ -131,39 +153,66 @@ const createStyles = (colors: ThemeColors) =>
       marginRight: 12,
     },
     term: {
-      fontSize: 28,
+      fontSize: isWide ? 38 : 28,
       fontWeight: '800',
       color: colors.textPrimary,
-      letterSpacing: -0.5,
+      letterSpacing: -0.6,
+      lineHeight: isWide ? 44 : 34,
     },
     phoneticRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
-      marginTop: 4,
+      gap: 10,
+      marginTop: isWide ? 8 : 4,
     },
     phonetic: {
-      fontSize: 15,
+      fontSize: isWide ? 17 : 15,
       color: colors.textSecondary,
-      fontFamily: 'monospace',
+      fontFamily: Platform.OS === 'web' ? 'monospace' : undefined,
     },
     speakerButton: {
-      padding: 4,
-    },
-    saveButton: {
-      width: 42,
-      height: 42,
-      borderRadius: 12,
-      backgroundColor: colors.surfaceBorder,
+      width: isWide ? 34 : 30,
+      height: isWide ? 34 : 30,
+      borderRadius: 8,
+      backgroundColor: colors.primarySubtle,
+      borderWidth: 1,
+      borderColor: colors.primaryBorder,
       alignItems: 'center',
       justifyContent: 'center',
+      ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+    },
+    saveButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 12,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      alignItems: 'center',
+      justifyContent: 'center',
+      ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+    },
+    saveButtonWide: {
+      width: 'auto',
+      paddingHorizontal: 16,
+      flexDirection: 'row',
+      gap: 8,
     },
     saveButtonActive: {
       backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    saveButtonText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.textPrimary,
+    },
+    saveButtonTextActive: {
+      color: '#FFFFFF',
     },
     translationsContainer: {
-      marginTop: 16,
-      gap: 14,
+      paddingTop: isWide ? 18 : 14,
+      gap: isWide ? 14 : 12,
     },
     posBlock: {
       gap: 8,
@@ -172,14 +221,13 @@ const createStyles = (colors: ThemeColors) =>
       alignSelf: 'flex-start',
       paddingHorizontal: 10,
       paddingVertical: 3,
-      borderRadius: 8,
+      borderRadius: 6,
       borderWidth: 1,
     },
     posBadgeText: {
-      fontSize: 11,
+      fontSize: isWide ? 12 : 11,
       fontWeight: '700',
-      textTransform: 'uppercase',
-      letterSpacing: 0.5,
+      textTransform: 'lowercase',
     },
     translationsList: {
       flexDirection: 'row',
@@ -187,16 +235,16 @@ const createStyles = (colors: ThemeColors) =>
       gap: 8,
     },
     translationPill: {
-      backgroundColor: colors.background,
+      backgroundColor: colors.surfaceHover,
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 10,
+      paddingHorizontal: isWide ? 14 : 12,
+      paddingVertical: isWide ? 7 : 6,
+      borderRadius: 8,
     },
     translationText: {
+      fontSize: isWide ? 15 : 14,
       color: colors.textPrimary,
-      fontSize: 14,
       fontWeight: '500',
     },
   });
