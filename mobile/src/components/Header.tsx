@@ -5,12 +5,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { ThemeColors } from '../theme/colors';
 import { useResponsive } from '../utils/useResponsive';
 
-interface HeaderProps {
-  onOpenSaved: () => void;
-  savedCount: number;
-}
-
-export const Header: React.FC<HeaderProps> = ({ onOpenSaved, savedCount }) => {
+export const Header: React.FC = () => {
   const { colors, isDark, toggleTheme } = useTheme();
   const { isWide, isDesktop } = useResponsive();
   const styles = useMemo(() => createStyles(colors, isDark, isWide, isDesktop), [colors, isDark, isWide, isDesktop]);
@@ -47,21 +42,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSaved, savedCount }) => {
               size={isWide ? 22 : 20}
               color={isDark ? colors.targetToken : colors.primary}
             />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.savedButton, isWide && styles.savedButtonWide]}
-            onPress={onOpenSaved}
-            accessibilityLabel="Palavras Salvas"
-            activeOpacity={0.7}
-          >
-            <Ionicons name="bookmark-outline" size={isWide ? 20 : 20} color={colors.textPrimary} />
-            {isWide && <Text style={styles.savedButtonText}>Deck Salvo</Text>}
-            {savedCount > 0 && (
-              <View style={[styles.badge, isWide && styles.badgeWide]}>
-                <Text style={styles.badgeText}>{savedCount > 99 ? '99+' : savedCount}</Text>
-              </View>
-            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -145,7 +125,6 @@ const createStyles = (colors: ThemeColors, isDark: boolean, isWide: boolean, isD
     actions: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: isWide ? 12 : 8,
     },
     iconButton: {
       width: isWide ? 42 : 38,
@@ -157,53 +136,5 @@ const createStyles = (colors: ThemeColors, isDark: boolean, isWide: boolean, isD
       alignItems: 'center',
       justifyContent: 'center',
       ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
-    },
-    savedButton: {
-      width: 38,
-      height: 38,
-      borderRadius: 10,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
-      alignItems: 'center',
-      justifyContent: 'center',
-      position: 'relative',
-      ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
-    },
-    savedButtonWide: {
-      width: 'auto',
-      height: 42,
-      borderRadius: 12,
-      paddingHorizontal: 14,
-      flexDirection: 'row',
-      gap: 8,
-    },
-    savedButtonText: {
-      color: colors.textPrimary,
-      fontSize: 14,
-      fontWeight: '600',
-    },
-    badge: {
-      position: 'absolute',
-      top: -4,
-      right: -4,
-      backgroundColor: colors.targetToken,
-      borderRadius: 9,
-      minWidth: 18,
-      height: 18,
-      paddingHorizontal: 4,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    badgeWide: {
-      position: 'relative',
-      top: 0,
-      right: 0,
-      marginLeft: 2,
-    },
-    badgeText: {
-      color: '#11221B',
-      fontSize: 11,
-      fontWeight: '800',
     },
   });
