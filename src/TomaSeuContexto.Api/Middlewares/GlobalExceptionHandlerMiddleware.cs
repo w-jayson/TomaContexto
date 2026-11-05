@@ -1,8 +1,9 @@
-﻿namespace TomaSeuContexto.Api.Middlewares;
+namespace TomaSeuContexto.Api.Middlewares;
 
 using System.Net;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
+using TomaSeuContexto.Application.Common;
 
 public class GlobalExceptionHandlerMiddleware
 {
@@ -21,23 +22,36 @@ public class GlobalExceptionHandlerMiddleware
         {
             await _next(context);
         }
+        catch (AiServiceUnavailableException ex)
+        {
+            _logger.LogError(ex, "AI service unavailable: {Message}", ex.Message);
+            await HandleExceptionAsync(
+                context,
+                StatusCodes.Status503ServiceUnavailable,
+                "AI Service Unavailable",
+                ex.Message);
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "An unhandled exception occurred: {Message}", ex.Message);
-            await HandleExceptionAsync(context, ex);
+            await HandleExceptionAsync(
+                context,
+                StatusCodes.Status500InternalServerError,
+                "An error occurred while processing your request.",
+                ex.Message);
         }
     }
 
-    private static Task HandleExceptionAsync(HttpContext context, Exception exception)
+    private static Task HandleExceptionAsync(HttpContext context, int statusCode, string title, string detail)
     {
         context.Response.ContentType = "application/problem+json";
-        context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+        context.Response.StatusCode = statusCode;
 
         var problemDetails = new ProblemDetails
         {
-            Status = StatusCodes.Status500InternalServerError,
-            Title = "An error occurred while processing your request.",
-            Detail = exception.Message,
+            Status = statusCode,
+            Title = title,
+            Detail = detail,
             Instance = context.Request.Path
         };
 
