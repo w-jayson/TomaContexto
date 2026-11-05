@@ -1,4 +1,4 @@
-﻿namespace TomaSeuContexto.Application.Services;
+namespace TomaSeuContexto.Application.Services;
 
 using TomaSeuContexto.Application.DTOs;
 using TomaSeuContexto.Application.Interfaces;
@@ -6,6 +6,8 @@ using TomaSeuContexto.Domain.Entities;
 
 public class WordLookupService : IWordLookupService
 {
+    public const int MaxTermLength = 80;
+
     private readonly IWordRepository _wordRepository;
     private readonly IGroqService _groqService;
 
@@ -23,6 +25,10 @@ public class WordLookupService : IWordLookupService
         }
 
         var normalizedTerm = rawTerm.Trim().ToLowerInvariant();
+        if (normalizedTerm.Length > MaxTermLength)
+        {
+            return null;
+        }
 
         // 1. Check local repository (Cache hit)
         var cachedWord = await _wordRepository.GetByTermAsync(normalizedTerm, cancellationToken);

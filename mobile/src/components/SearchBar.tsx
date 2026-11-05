@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { ThemeColors } from '../theme/colors';
 import { useResponsive } from '../utils/useResponsive';
+import { MAX_SEARCH_LENGTH } from '../api/wordsApi';
 
 interface SearchBarProps {
   value: string;
@@ -20,6 +21,7 @@ interface SearchBarProps {
   isLoading: boolean;
   recentSearches?: string[];
   onSelectRecent?: (term: string) => void;
+  maxLength?: number;
 }
 
 export const SearchBar: React.FC<SearchBarProps> = ({
@@ -29,10 +31,17 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   isLoading,
   recentSearches = [],
   onSelectRecent,
+  maxLength = MAX_SEARCH_LENGTH,
 }) => {
   const { colors } = useTheme();
   const { isWide, isDesktop } = useResponsive();
   const styles = useMemo(() => createStyles(colors, isWide, isDesktop), [colors, isWide, isDesktop]);
+  const isNearLimit = value.length >= Math.floor(maxLength * 0.75);
+  const isAtLimit = value.length >= maxLength;
+
+  const handleChangeText = (text: string) => {
+    onChangeText(text.slice(0, maxLength));
+  };
 
   return (
     <View style={styles.outerWrapper}>
@@ -53,12 +62,19 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             }
             placeholderTextColor={colors.textMuted}
             value={value}
-            onChangeText={onChangeText}
+            onChangeText={handleChangeText}
             onSubmitEditing={() => onSubmit()}
             returnKeyType="search"
             autoCapitalize="none"
             autoCorrect={false}
+            maxLength={maxLength}
           />
+
+          {isNearLimit && (
+            <Text style={[styles.charCounter, isAtLimit && styles.charCounterLimit]}>
+              {value.length}/{maxLength}
+            </Text>
+          )}
 
           {value.length > 0 && (
             <TouchableOpacity
@@ -156,6 +172,15 @@ const createStyles = (colors: ThemeColors, isWide: boolean, isDesktop: boolean) 
       padding: 6,
       marginRight: 4,
       ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+    },
+    charCounter: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: colors.textMuted,
+      marginRight: 6,
+    },
+    charCounterLimit: {
+      color: colors.error,
     },
     shortcutHint: {
       backgroundColor: colors.primarySubtle,
