@@ -21,17 +21,28 @@ export async function getApiBaseUrl(): Promise<string> {
 
   const envUrl = process.env.EXPO_PUBLIC_API_URL;
   if (envUrl) {
-    cachedBaseUrl = envUrl;
-    return envUrl;
+    cachedBaseUrl = envUrl.replace(/\/+$/, '');
+    return cachedBaseUrl;
   }
 
-  // Candidate ports commonly used by dotnet run (launchSettings.json) and docker
-  const candidates = [
+  const isWebRemote =
+    Platform.OS === 'web' &&
+    typeof window !== 'undefined' &&
+    Boolean(window.location?.origin) &&
+    window.location.hostname !== 'localhost' &&
+    window.location.hostname !== '127.0.0.1';
+
+  // Candidate ports commonly used by reverse proxy (same origin), dotnet run, and docker
+  const candidates: string[] = [];
+  if (isWebRemote) {
+    candidates.push(window.location.origin);
+  }
+  candidates.push(
     `http://${defaultHost}:5127`,
     `http://${defaultHost}:5000`,
     `https://${defaultHost}:7110`,
-    `http://${defaultHost}:8080`,
-  ];
+    `http://${defaultHost}:8080`
+  );
 
   for (const url of candidates) {
     try {
@@ -52,8 +63,8 @@ export async function getApiBaseUrl(): Promise<string> {
     }
   }
 
-  // Fallback to default port 5127 (matches launchSettings.json)
-  const fallback = `http://${defaultHost}:5127`;
+  // Fallback to same-origin in production web, or default port 5127 locally
+  const fallback = isWebRemote ? window.location.origin : `http://${defaultHost}:5127`;
   cachedBaseUrl = fallback;
   return fallback;
 }

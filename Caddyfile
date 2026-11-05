@@ -1,0 +1,24 @@
+{$SITE_ADDRESS::80} {
+    encode gzip
+
+    # Proxy API & documentation routes to the .NET backend container
+    handle /api/* {
+        reverse_proxy api:8080
+    }
+    handle /health {
+        reverse_proxy api:8080
+    }
+    handle /scalar/* {
+        reverse_proxy api:8080
+    }
+    handle /openapi/* {
+        reverse_proxy api:8080
+    }
+
+    # Serve Expo Web static files
+    handle {
+        root * /srv
+        try_files {path} /index.html
+        file_server
+    }
+}
