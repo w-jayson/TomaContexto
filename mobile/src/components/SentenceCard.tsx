@@ -1,11 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Speech from 'expo-speech';
 import { SentencePairDto } from '../types/word';
 import { useTheme } from '../theme/ThemeContext';
 import { ThemeColors } from '../theme/colors';
 import { useResponsive } from '../utils/useResponsive';
+import { playSmartAudio } from '../utils/audioPlayer';
 
 interface SentenceCardProps {
   sentence: SentencePairDto;
@@ -13,40 +13,48 @@ interface SentenceCardProps {
   keyword: string;
 }
 
-export const SentenceCard: React.FC<SentenceCardProps> = ({ sentence, index, keyword }) => {
+// Safely escape regex metacharacters to eliminate ReDoS and syntax errors
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+const SentenceCardComponent: React.FC<SentenceCardProps> = ({ sentence, index, keyword }) => {
   const { colors } = useTheme();
   const { isWide, isDesktop } = useResponsive();
   const styles = useMemo(() => createStyles(colors, isWide, isDesktop), [colors, isWide, isDesktop]);
   const [isPlaying, setIsPlaying] = useState(false);
 
   const speakSentence = async () => {
-    try {
-      setIsPlaying(true);
-      await Speech.stop();
-      Speech.speak(sentence.en, {
-        language: 'en-US',
-        rate: 0.88,
-        onDone: () => setIsPlaying(false),
-        onError: () => setIsPlaying(false),
-      });
-    } catch {
-      setIsPlaying(false);
-    }
+    await playSmartAudio({
+      text: sentence.en,
+      type: 'sentence',
+      rate: 0.88,
+      onStart: () => setIsPlaying(true),
+      onDone: () => setIsPlaying(false),
+      onError: () => setIsPlaying(false),
+    });
   };
 
+  // Compile and hoist Regex safely based only on trimmed keyword
+  const keywordRegex = useMemo(() => {
+    const trimmed = keyword.trim();
+    if (!trimmed) return null;
+    return new RegExp(`(${escapeRegex(trimmed)})`, 'gi');
+  }, [keyword]);
+
   // Highlights the searched keyword in the English sentence
-  const renderHighlightedText = () => {
-    if (!keyword.trim()) {
+  const renderedText = useMemo(() => {
+    if (!keywordRegex) {
       return <Text style={styles.sentenceEn}>{sentence.en}</Text>;
     }
 
-    const regex = new RegExp(`(${keyword.trim()})`, 'gi');
-    const parts = sentence.en.split(regex);
+    const trimmedKeyword = keyword.trim().toLowerCase();
+    const parts = sentence.en.split(keywordRegex);
 
     return (
       <Text style={styles.sentenceEn}>
         {parts.map((part, i) => {
-          const isMatch = part.toLowerCase() === keyword.trim().toLowerCase();
+          const isMatch = part.toLowerCase() === trimmedKeyword;
           return isMatch ? (
             <Text key={i} style={styles.highlightText}>
               {part}
@@ -57,32 +65,35 @@ export const SentenceCard: React.FC<SentenceCardProps> = ({ sentence, index, key
         })}
       </Text>
     );
-  };
+  }, [sentence.en, keywordRegex, keyword, styles]);
 
   return (
     <View style={styles.card}>
       <View style={styles.headerRow}>
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>Exemplo {index + 1} • i+1</Text>
+        <View style={styles.indexTag}>
+          <Text style={styles.indexNumber}>#{index + 1}</Text>
+          <Text style={styles.contextLabel}>Contexto i+1</Text>
         </View>
 
         <TouchableOpacity
-          style={styles.speakerButton}
+          style={[styles.speakerButton, isPlaying ? styles.speakerButtonPlaying : null]}
           onPress={speakSentence}
           activeOpacity={0.7}
+          accessibilityRole="button"
           accessibilityLabel="Ouvir sentença em inglês"
+          accessibilityState={{ busy: isPlaying }}
         >
           <Ionicons
             name={isPlaying ? 'volume-high' : 'volume-medium-outline'}
             size={isWide ? 20 : 18}
-            color={colors.primary}
+            color={isPlaying ? colors.primaryDark : colors.primary}
           />
         </TouchableOpacity>
       </View>
 
       {/* English Sentence with Highlighted Keyword */}
       <View style={styles.sentenceBox}>
-        {renderHighlightedText()}
+        {renderedText}
       </View>
 
       {/* Portuguese Contextual Translation */}
@@ -92,6 +103,8 @@ export const SentenceCard: React.FC<SentenceCardProps> = ({ sentence, index, key
     </View>
   );
 };
+
+export const SentenceCard = memo(SentenceCardComponent);
 
 const createStyles = (colors: ThemeColors, isWide: boolean, isDesktop: boolean) =>
   StyleSheet.create({
@@ -115,18 +128,22 @@ const createStyles = (colors: ThemeColors, isWide: boolean, isDesktop: boolean) 
       justifyContent: 'space-between',
       marginBottom: isWide ? 14 : 10,
     },
-    badge: {
-      backgroundColor: colors.primarySubtle,
-      borderWidth: 1,
-      borderColor: colors.primaryBorder,
-      paddingHorizontal: isWide ? 10 : 8,
-      paddingVertical: isWide ? 3 : 2,
-      borderRadius: 6,
+    indexTag: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
     },
-    badgeText: {
+    indexNumber: {
+      color: colors.textMuted,
+      fontSize: isWide ? 13 : 12,
+      fontWeight: '700',
+      fontVariant: ['tabular-nums'],
+    },
+    contextLabel: {
       color: colors.primary,
       fontSize: isWide ? 12 : 11,
-      fontWeight: '700',
+      fontWeight: '600',
+      letterSpacing: 0.3,
     },
     speakerButton: {
       width: isWide ? 36 : 32,
@@ -136,6 +153,9 @@ const createStyles = (colors: ThemeColors, isWide: boolean, isDesktop: boolean) 
       alignItems: 'center',
       justifyContent: 'center',
       ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+    },
+    speakerButtonPlaying: {
+      backgroundColor: colors.primaryBorder,
     },
     sentenceBox: {
       marginBottom: isWide ? 14 : 10,

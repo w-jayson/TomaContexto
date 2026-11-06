@@ -10,19 +10,39 @@ export const DEFAULT_API_URL: string =
   }) ?? 'http://localhost:5127');
 
 let cachedBaseUrl: string | null = null;
+let resolvingPromise: Promise<string> | null = null;
+
+async function probeUrl(url: string, timeoutMs = 1200): Promise<string> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${url}/health`, {
+      method: 'GET',
+      signal: controller.signal,
+    });
+    if (res.ok) {
+      return url;
+    }
+    throw new Error(`Endpoint ${url} returned ${res.status}`);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 /**
- * Dynamically resolves the API base URL.
+ * Dynamically resolves the API base URL with parallel probing (eliminates waterfalls).
  * Automatically discovers active backend instances across standard .NET ports
  * (5127 defined in launchSettings.json, 5000, 7110, or 8080).
  */
 export async function getApiBaseUrl(): Promise<string> {
   if (cachedBaseUrl) return cachedBaseUrl;
+  if (resolvingPromise) return resolvingPromise;
 
   const envUrl = process.env.EXPO_PUBLIC_API_URL;
   if (envUrl) {
-    cachedBaseUrl = envUrl.replace(/\/+$/, '');
-    return cachedBaseUrl;
+    const sanitized = envUrl.replace(/\/+$/, '');
+    cachedBaseUrl = sanitized;
+    return sanitized;
   }
 
   const isWebRemote =
@@ -44,27 +64,21 @@ export async function getApiBaseUrl(): Promise<string> {
     `http://${defaultHost}:8080`
   );
 
-  for (const url of candidates) {
+  resolvingPromise = (async () => {
     try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 1200);
-      const res = await fetch(`${url}/health`, {
-        method: 'GET',
-        signal: controller.signal,
-      });
-      clearTimeout(timer);
-
-      if (res.ok) {
-        cachedBaseUrl = url;
-        return url;
-      }
+      // Parallel probing using Promise.any to eliminate sequential waterfalls (async-parallel)
+      const healthyUrl = await Promise.any(candidates.map((url) => probeUrl(url)));
+      cachedBaseUrl = healthyUrl;
+      return healthyUrl;
     } catch {
-      // Continue to next candidate
+      // Fallback to same-origin in production web, or default port 5127 locally
+      const fallback = isWebRemote ? window.location.origin : `http://${defaultHost}:5127`;
+      cachedBaseUrl = fallback;
+      return fallback;
+    } finally {
+      resolvingPromise = null;
     }
-  }
+  })();
 
-  // Fallback to same-origin in production web, or default port 5127 locally
-  const fallback = isWebRemote ? window.location.origin : `http://${defaultHost}:5127`;
-  cachedBaseUrl = fallback;
-  return fallback;
+  return resolvingPromise;
 }

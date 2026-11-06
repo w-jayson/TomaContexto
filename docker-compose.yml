@@ -28,6 +28,9 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-tomaseucontexto};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD}"
       GROQ_API_KEY: ${GROQ_API_KEY:?Defina GROQ_API_KEY no arquivo .env}
+      GOOGLE_TTS_API_KEY: ${GOOGLE_TTS_API_KEY:-}
+    volumes:
+      - audio_data:/app/storage/audio
 
   web:
     build:
@@ -51,5 +54,6 @@ services:
 
 volumes:
   pgdata:
+  audio_data:
   caddy_data:
   caddy_config:

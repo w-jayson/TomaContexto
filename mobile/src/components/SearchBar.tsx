@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useCallback, memo } from 'react';
 import {
   View,
   TextInput,
@@ -24,7 +24,7 @@ interface SearchBarProps {
   maxLength?: number;
 }
 
-export const SearchBar: React.FC<SearchBarProps> = ({
+const SearchBarComponent: React.FC<SearchBarProps> = ({
   value,
   onChangeText,
   onSubmit,
@@ -41,59 +41,58 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 
   const [suggestions, setSuggestions] = useState<WordSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [typingTick, setTypingTick] = useState(0);
+  const debounceTimerRef = useRef<any>(null);
   const requestSeqRef = useRef(0);
 
   // Close suggestions whenever a search starts loading
   useEffect(() => {
     if (isLoading) {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
       requestSeqRef.current += 1;
       setShowSuggestions(false);
       setSuggestions([]);
     }
   }, [isLoading]);
 
-  // Only fetch suggestions when the user actively types in the input (typingTick increments)
+  // Clean up debounce timer on unmount
   useEffect(() => {
-    if (typingTick === 0) {
-      return;
-    }
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
+  }, []);
 
-    const trimmed = value.trim();
-    if (trimmed.length < 2) {
-      setSuggestions([]);
-      setShowSuggestions(false);
-      return;
-    }
+  const handleChangeText = useCallback(
+    (text: string) => {
+      const sliced = text.slice(0, maxLength);
+      onChangeText(sliced);
 
-    const currentSeq = ++requestSeqRef.current;
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
 
-    const timer = setTimeout(async () => {
-      const results = await fetchWordSuggestions(trimmed, recentSearches);
-      // Ignore stale responses if user already submitted, selected, or typed again
-      if (currentSeq !== requestSeqRef.current) {
+      const trimmed = sliced.trim();
+      if (trimmed.length < 2) {
+        requestSeqRef.current += 1;
+        setShowSuggestions(false);
+        setSuggestions([]);
         return;
       }
-      setSuggestions(results);
-      setShowSuggestions(results.length > 0);
-    }, 220);
 
-    return () => clearTimeout(timer);
-  }, [typingTick]);
-
-  const handleChangeText = (text: string) => {
-    const sliced = text.slice(0, maxLength);
-    onChangeText(sliced);
-    if (!sliced.trim()) {
-      requestSeqRef.current += 1;
-      setShowSuggestions(false);
-      setSuggestions([]);
-    } else {
-      setTypingTick((prev) => prev + 1);
-    }
-  };
+      const currentSeq = ++requestSeqRef.current;
+      debounceTimerRef.current = setTimeout(async () => {
+        const results = await fetchWordSuggestions(trimmed, recentSearches);
+        if (currentSeq !== requestSeqRef.current) {
+          return;
+        }
+        setSuggestions(results);
+        setShowSuggestions(results.length > 0);
+      }, 200);
+    },
+    [maxLength, onChangeText, recentSearches]
+  );
 
   const handleSelectSuggestion = (word: string) => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     requestSeqRef.current += 1;
     setShowSuggestions(false);
     setSuggestions([]);
@@ -102,6 +101,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   };
 
   const handleManualSubmit = () => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     requestSeqRef.current += 1;
     setShowSuggestions(false);
     setSuggestions([]);
@@ -135,16 +135,17 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             maxLength={maxLength}
           />
 
-          {isNearLimit && (
-            <Text style={[styles.charCounter, isAtLimit && styles.charCounterLimit]}>
+          {isNearLimit ? (
+            <Text style={[styles.charCounter, isAtLimit ? styles.charCounterLimit : null]}>
               {value.length}/{maxLength}
             </Text>
-          )}
+          ) : null}
 
-          {value.length > 0 && (
+          {value.length > 0 ? (
             <TouchableOpacity
               style={styles.clearButton}
               onPress={() => {
+                if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
                 setShowSuggestions(false);
                 setSuggestions([]);
                 onChangeText('');
@@ -153,16 +154,16 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             >
               <Ionicons name="close-circle" size={isWide ? 20 : 18} color={colors.textSecondary} />
             </TouchableOpacity>
-          )}
+          ) : null}
 
-          {isWide && !isLoading && (
+          {isWide && !isLoading ? (
             <View style={styles.shortcutHint}>
               <Text style={styles.shortcutText}>Enter ↵</Text>
             </View>
-          )}
+          ) : null}
 
           <TouchableOpacity
-            style={[styles.submitButton, !value.trim() && styles.submitButtonDisabled]}
+            style={[styles.submitButton, !value.trim() ? styles.submitButtonDisabled : null]}
             onPress={handleManualSubmit}
             disabled={isLoading || !value.trim()}
             activeOpacity={0.8}
@@ -176,14 +177,14 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         </View>
 
         {/* Autocomplete & Spell-Correction Suggestions Dropdown */}
-        {showSuggestions && suggestions.length > 0 && (
+        {showSuggestions && suggestions.length > 0 ? (
           <View style={styles.suggestionsDropdown}>
             {suggestions.map((item, idx) => (
               <TouchableOpacity
                 key={item.word}
                 style={[
                   styles.suggestionItem,
-                  idx < suggestions.length - 1 && styles.suggestionItemBorder,
+                  idx < suggestions.length - 1 ? styles.suggestionItemBorder : null,
                 ]}
                 onPress={() => handleSelectSuggestion(item.word)}
                 activeOpacity={0.7}
@@ -197,18 +198,18 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                   <Text style={styles.suggestionWord}>{item.word}</Text>
                 </View>
 
-                {item.isCorrection && (
+                {item.isCorrection ? (
                   <View style={styles.correctionBadge}>
                     <Text style={styles.correctionBadgeText}>Você quis dizer?</Text>
                   </View>
-                )}
+                ) : null}
               </TouchableOpacity>
             ))}
           </View>
-        )}
+        ) : null}
 
         {/* Desktop Quick Chips for Recent Searches */}
-        {isWide && recentSearches.length > 0 && onSelectRecent && (
+        {isWide && recentSearches.length > 0 && onSelectRecent ? (
           <View style={styles.recentRow}>
             <Text style={styles.recentLabel}>Consultas recentes:</Text>
             <View style={styles.chipsContainer}>
@@ -217,6 +218,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                   key={term}
                   style={styles.chip}
                   onPress={() => {
+                    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
                     requestSeqRef.current += 1;
                     setShowSuggestions(false);
                     setSuggestions([]);
@@ -229,11 +231,13 @@ export const SearchBar: React.FC<SearchBarProps> = ({
               ))}
             </View>
           </View>
-        )}
+        ) : null}
       </View>
     </View>
   );
 };
+
+export const SearchBar = memo(SearchBarComponent);
 
 const createStyles = (colors: ThemeColors, isWide: boolean, isDesktop: boolean) =>
   StyleSheet.create({
