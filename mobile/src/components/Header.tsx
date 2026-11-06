@@ -1,11 +1,11 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { ThemeColors } from '../theme/colors';
 import { useResponsive } from '../utils/useResponsive';
 
-export const Header: React.FC = () => {
+const HeaderComponent: React.FC = () => {
   const { colors, isDark, toggleTheme } = useTheme();
   const { isWide, isDesktop } = useResponsive();
   const styles = useMemo(() => createStyles(colors, isDark, isWide, isDesktop), [colors, isDark, isWide, isDesktop]);
@@ -20,11 +20,11 @@ export const Header: React.FC = () => {
           <View>
             <View style={styles.titleRow}>
               <Text style={styles.title}>TomaSeuContexto</Text>
-              {isWide && (
+              {isWide ? (
                 <View style={styles.langPill}>
                   <Text style={styles.langPillText}>EN ➔ PT-BR</Text>
                 </View>
-              )}
+              ) : null}
             </View>
             <Text style={styles.subtitle}>Sentence Mining • Método i+1</Text>
           </View>
@@ -48,6 +48,8 @@ export const Header: React.FC = () => {
     </View>
   );
 };
+
+export const Header = memo(HeaderComponent);
 
 const createStyles = (colors: ThemeColors, isDark: boolean, isWide: boolean, isDesktop: boolean) =>
   StyleSheet.create({

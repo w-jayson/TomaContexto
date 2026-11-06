@@ -1,35 +1,31 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Speech from 'expo-speech';
 import { WordLookupResponseDto } from '../types/word';
 import { useTheme } from '../theme/ThemeContext';
 import { ThemeColors } from '../theme/colors';
 import { useResponsive } from '../utils/useResponsive';
+import { playSmartAudio } from '../utils/audioPlayer';
 
 interface WordCardProps {
   word: WordLookupResponseDto;
 }
 
-export const WordCard: React.FC<WordCardProps> = ({ word }) => {
+const WordCardComponent: React.FC<WordCardProps> = ({ word }) => {
   const { colors } = useTheme();
   const { isWide, isDesktop } = useResponsive();
   const styles = useMemo(() => createStyles(colors, isWide, isDesktop), [colors, isWide, isDesktop]);
   const [isPlaying, setIsPlaying] = useState(false);
 
   const speakTerm = async () => {
-    try {
-      setIsPlaying(true);
-      await Speech.stop();
-      Speech.speak(word.term, {
-        language: 'en-US',
-        rate: 0.9,
-        onDone: () => setIsPlaying(false),
-        onError: () => setIsPlaying(false),
-      });
-    } catch {
-      setIsPlaying(false);
-    }
+    await playSmartAudio({
+      text: word.term,
+      type: 'word',
+      rate: 0.9,
+      onStart: () => setIsPlaying(true),
+      onDone: () => setIsPlaying(false),
+      onError: () => setIsPlaying(false),
+    });
   };
 
   const getPosColor = (pos: string) => {
@@ -43,19 +39,11 @@ export const WordCard: React.FC<WordCardProps> = ({ word }) => {
     return colors.posDefault;
   };
 
-  // Adjust font size dynamically for long terms like "consciousness"
+  // Adjust font size dynamically for long terms without useMemo overhead (rerender-simple-expression-in-memo)
   const termLength = word.term.length;
-  const termFontSize = useMemo(() => {
-    if (isWide) {
-      if (termLength >= 15) return 24;
-      if (termLength >= 11) return 27;
-      return 31;
-    } else {
-      if (termLength >= 15) return 21;
-      if (termLength >= 11) return 23;
-      return 26;
-    }
-  }, [isWide, termLength]);
+  const termFontSize = isWide
+    ? (termLength >= 15 ? 24 : termLength >= 11 ? 27 : 31)
+    : (termLength >= 15 ? 21 : termLength >= 11 ? 23 : 26);
 
   return (
     <View style={styles.card}>
@@ -70,39 +58,43 @@ export const WordCard: React.FC<WordCardProps> = ({ word }) => {
             {word.term}
           </Text>
 
-          {word.phonetic && (
+          {word.phonetic ? (
             <View style={styles.phoneticRow}>
               <Text style={styles.phonetic}>{word.phonetic}</Text>
               <TouchableOpacity
-                style={styles.speakerButton}
+                style={[styles.speakerButton, isPlaying ? styles.speakerButtonPlaying : null]}
                 onPress={speakTerm}
                 activeOpacity={0.7}
+                accessibilityRole="button"
                 accessibilityLabel="Ouvir pronúncia"
+                accessibilityState={{ busy: isPlaying }}
               >
                 <Ionicons
                   name={isPlaying ? 'volume-high' : 'volume-medium-outline'}
                   size={isWide ? 19 : 18}
-                  color={colors.primary}
+                  color={isPlaying ? colors.primaryDark : colors.primary}
                 />
               </TouchableOpacity>
             </View>
-          )}
+          ) : null}
         </View>
 
-        {!word.phonetic && (
+        {!word.phonetic ? (
           <TouchableOpacity
-            style={styles.speakerButton}
+            style={[styles.speakerButton, isPlaying ? styles.speakerButtonPlaying : null]}
             onPress={speakTerm}
             activeOpacity={0.7}
+            accessibilityRole="button"
             accessibilityLabel="Ouvir pronúncia"
+            accessibilityState={{ busy: isPlaying }}
           >
             <Ionicons
               name={isPlaying ? 'volume-high' : 'volume-medium-outline'}
               size={isWide ? 20 : 18}
-              color={colors.primary}
+              color={isPlaying ? colors.primaryDark : colors.primary}
             />
           </TouchableOpacity>
-        )}
+        ) : null}
       </View>
 
       {/* Translations grouped by Part of Speech */}
@@ -136,6 +128,8 @@ export const WordCard: React.FC<WordCardProps> = ({ word }) => {
     </View>
   );
 };
+
+export const WordCard = memo(WordCardComponent);
 
 const createStyles = (colors: ThemeColors, isWide: boolean, isDesktop: boolean) =>
   StyleSheet.create({
@@ -197,6 +191,9 @@ const createStyles = (colors: ThemeColors, isWide: boolean, isDesktop: boolean) 
       alignItems: 'center',
       justifyContent: 'center',
       ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+    },
+    speakerButtonPlaying: {
+      backgroundColor: colors.primaryBorder,
     },
     translationsContainer: {
       paddingTop: isWide ? 16 : 12,

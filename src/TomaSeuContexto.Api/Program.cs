@@ -20,6 +20,16 @@ builder.Configuration.AddJsonFile("appsettings.local.json", optional: true, relo
 // Options configuration
 builder.Services.Configure<GroqOptions>(builder.Configuration.GetSection(GroqOptions.SectionName));
 
+var googleTtsApiKey = Environment.GetEnvironmentVariable("GOOGLE_TTS_API_KEY");
+builder.Services.Configure<GoogleTtsOptions>(options =>
+{
+    builder.Configuration.GetSection(GoogleTtsOptions.SectionName).Bind(options);
+    if (!string.IsNullOrWhiteSpace(googleTtsApiKey))
+    {
+        options.ApiKey = googleTtsApiKey;
+    }
+});
+
 // Forwarded headers so rate limiting identifies real client IP behind Caddy / reverse proxies
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
@@ -104,6 +114,7 @@ else
 }
 
 builder.Services.AddHttpClient<IGroqService, GroqService>();
+builder.Services.AddHttpClient<ITtsService, GoogleTtsService>();
 builder.Services.AddScoped<IWordLookupService, WordLookupService>();
 
 var app = builder.Build();

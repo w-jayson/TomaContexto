@@ -26,6 +26,7 @@ import { SearchBar } from './src/components/SearchBar';
 import { WordCard } from './src/components/WordCard';
 import { SentenceCard } from './src/components/SentenceCard';
 import { EmptyState } from './src/components/EmptyState';
+import { stopAudio } from './src/utils/audioPlayer';
 
 function MainApp() {
   const { colors, isDark } = useTheme();
@@ -65,44 +66,57 @@ function MainApp() {
     loadStoredData();
   }, [loadStoredData]);
 
-  const handleSearch = async (termToSearch?: string) => {
-    const target = (termToSearch || searchTerm).trim();
-    if (!target) return;
+  const handleSearch = useCallback(
+    async (termToSearch?: string) => {
+      const target = (termToSearch || searchTerm).trim();
+      if (!target) return;
 
-    Keyboard.dismiss();
-    setIsLoading(true);
-    setErrorMessage(null);
-    setDidYouMeanTerm(null);
+      stopAudio();
+      Keyboard.dismiss();
+      setIsLoading(true);
+      setErrorMessage(null);
+      setDidYouMeanTerm(null);
 
-    try {
-      const data = await lookupWord(target);
-      setWordData(data);
-      const updatedRecent = await addRecentSearch(data.term);
-      setRecentSearches(updatedRecent);
-    } catch (err: any) {
-      setWordData(null);
-      setErrorMessage(err.message || 'Ocorreu um erro ao buscar a palavra.');
-      const suggestion = await fetchDidYouMean(target);
-      if (suggestion && suggestion.toLowerCase() !== target.toLowerCase()) {
-        setDidYouMeanTerm(suggestion);
+      try {
+        const data = await lookupWord(target);
+        setWordData(data);
+
+        // Defer local storage update without blocking UI display (async-defer-await)
+        addRecentSearch(data.term)
+          .then((updatedRecent) => setRecentSearches(updatedRecent))
+          .catch(() => {});
+      } catch (err: any) {
+        setWordData(null);
+        setErrorMessage(err.message || 'Ocorreu um erro ao buscar a palavra.');
+        fetchDidYouMean(target)
+          .then((suggestion) => {
+            if (suggestion && suggestion.toLowerCase() !== target.toLowerCase()) {
+              setDidYouMeanTerm(suggestion);
+            }
+          })
+          .catch(() => {});
+      } finally {
+        setIsLoading(false);
       }
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    },
+    [searchTerm]
+  );
 
-  const handleRefresh = async () => {
+  const handleRefresh = useCallback(async () => {
     if (wordData) {
       setRefreshing(true);
       await handleSearch(wordData.term);
       setRefreshing(false);
     }
-  };
+  }, [handleSearch, wordData]);
 
-  const handleSelectRecent = (term: string) => {
-    setSearchTerm(term);
-    handleSearch(term);
-  };
+  const handleSelectRecent = useCallback(
+    (term: string) => {
+      setSearchTerm(term);
+      handleSearch(term);
+    },
+    [handleSearch]
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -139,15 +153,15 @@ function MainApp() {
           }
         >
           {/* Loading Spinner */}
-          {isLoading && (
+          {isLoading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={colors.primary} />
               <Text style={styles.loadingText}>{loadingMessage}</Text>
             </View>
-          )}
+          ) : null}
 
           {/* Error Alert Box */}
-          {errorMessage && !isLoading && (
+          {!isLoading && errorMessage ? (
             <View style={styles.errorBoxWrapper}>
               <View style={styles.errorBox}>
                 <Ionicons name="alert-circle-outline" size={26} color={colors.error} />
@@ -156,7 +170,7 @@ function MainApp() {
                   <Text style={styles.errorDesc}>{errorMessage}</Text>
                 </View>
 
-                {didYouMeanTerm && (
+                {didYouMeanTerm ? (
                   <TouchableOpacity
                     style={styles.didYouMeanButton}
                     onPress={() => {
@@ -170,7 +184,7 @@ function MainApp() {
                       Você quis dizer: <Text style={styles.didYouMeanWord}>{didYouMeanTerm}</Text>?
                     </Text>
                   </TouchableOpacity>
-                )}
+                ) : null}
 
                 <TouchableOpacity
                   style={styles.retryButton}
@@ -181,10 +195,10 @@ function MainApp() {
                 </TouchableOpacity>
               </View>
             </View>
-          )}
+          ) : null}
 
           {/* Word Display and Sentences */}
-          {!isLoading && wordData && (
+          {!isLoading && wordData ? (
             <View style={styles.contentWrapper}>
               {isDesktop ? (
                 /* Desktop Two-Column Layout */
@@ -245,10 +259,10 @@ function MainApp() {
                 </View>
               )}
             </View>
-          )}
+          ) : null}
 
           {/* Initial Empty State when no search conducted */}
-          {!isLoading && !wordData && !errorMessage && <EmptyState />}
+          {!isLoading && !wordData && !errorMessage ? <EmptyState /> : null}
         </ScrollView>
       </View>
     </SafeAreaView>

@@ -1,11 +1,11 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, memo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { ThemeColors } from '../theme/colors';
 import { useResponsive } from '../utils/useResponsive';
 
-export const EmptyState: React.FC = () => {
+const EmptyStateComponent: React.FC = () => {
   const { colors } = useTheme();
   const { isWide, isDesktop } = useResponsive();
   const styles = useMemo(() => createStyles(colors, isWide, isDesktop), [colors, isWide, isDesktop]);
@@ -13,61 +13,50 @@ export const EmptyState: React.FC = () => {
   return (
     <View style={styles.container}>
       <View style={styles.iconCircle}>
-        <Ionicons name="book-outline" size={isWide ? 38 : 30} color={colors.primary} />
+        <Ionicons name="sparkles-outline" size={isWide ? 34 : 28} color={colors.primary} />
       </View>
 
-      <Text style={styles.title}>Mineração de Sentenças</Text>
+      <Text style={styles.title}>Mineração de Sentenças em Contexto</Text>
       <Text style={styles.description}>
-        Baseado no método do <Text style={styles.bold}>Input Compreensível (i+1)</Text>:
-        aprenda novos vocábulos inseridos em contextos naturais, onde{' '}
-        <Text style={styles.accentText}>i</Text> é a sua base conhecida e{' '}
-        <Text style={styles.accentText}>+1</Text> é a nova expressão aprendida.
+        Aprenda inglês com o princípio do <Text style={styles.bold}>Input Compreensível (i+1)</Text>:
+        compreender 95% da sentença (<Text style={styles.tokenI}>i</Text>) para adquirir o novo termo (
+        <Text style={styles.tokenPlusOne}>+1</Text>) sem esforço de memorização mecânica.
       </Text>
 
-      <View style={styles.guideCard}>
-        <Text style={styles.guideTitle}>Como funciona o TomaSeuContexto</Text>
+      {/* Grounded Demo Card showing Krashen's i+1 principle */}
+      <View style={styles.demoCard}>
+        <View style={styles.demoHeader}>
+          <Text style={styles.demoBadge}>Princípio na Prática</Text>
+          <Text style={styles.demoSub}>Método Natural de Krashen</Text>
+        </View>
 
-        <View style={styles.stepsContainer}>
-          <View style={styles.stepItem}>
-            <View style={styles.stepNumber}>
-              <Text style={styles.stepNumberText}>1</Text>
-            </View>
-            <View style={styles.stepContent}>
-              <Text style={styles.stepHeading}>Busque qualquer termo</Text>
-              <Text style={styles.stepText}>
-                Digite qualquer palavra, verbo ou *phrasal verb* em inglês na barra acima.
-              </Text>
-            </View>
+        <View style={styles.sentencePreview}>
+          <Text style={styles.previewEn}>
+            "The community showed remarkable{' '}
+            <Text style={styles.previewHighlight}>resilience</Text> after the storm."
+          </Text>
+          <Text style={styles.previewPt}>
+            A comunidade mostrou uma <Text style={styles.previewPtHighlight}>resiliência</Text> notável após a tempestade.
+          </Text>
+        </View>
+
+        <View style={styles.equationRow}>
+          <View style={styles.equationBlock}>
+            <Text style={styles.equationSymbol}>i</Text>
+            <Text style={styles.equationDesc}>Tudo o que você já compreende na frase</Text>
           </View>
-
-          <View style={styles.stepItem}>
-            <View style={styles.stepNumber}>
-              <Text style={styles.stepNumberText}>2</Text>
-            </View>
-            <View style={styles.stepContent}>
-              <Text style={styles.stepHeading}>Análise Lexical & Fonética</Text>
-              <Text style={styles.stepText}>
-                Consulte transcrição fonética internacional (IPA) e traduções agrupadas por classe.
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.stepItem}>
-            <View style={styles.stepNumber}>
-              <Text style={styles.stepNumberText}>3</Text>
-            </View>
-            <View style={styles.stepContent}>
-              <Text style={styles.stepHeading}>Contexto Real & Áudio</Text>
-              <Text style={styles.stepText}>
-                Examine sentenças reais de uso, ouça pronúncias nativas e salve termos no seu deck.
-              </Text>
-            </View>
+          <Text style={styles.equationPlus}>+</Text>
+          <View style={styles.equationBlock}>
+            <Text style={[styles.equationSymbol, styles.equationPlusOne]}>1</Text>
+            <Text style={styles.equationDesc}>O novo termo assimilado pelo contexto</Text>
           </View>
         </View>
       </View>
     </View>
   );
 };
+
+export const EmptyState = memo(EmptyStateComponent);
 
 const createStyles = (colors: ThemeColors, isWide: boolean, isDesktop: boolean) =>
   StyleSheet.create({
@@ -80,103 +69,138 @@ const createStyles = (colors: ThemeColors, isWide: boolean, isDesktop: boolean) 
       alignSelf: 'center',
     },
     iconCircle: {
-      width: isWide ? 76 : 64,
-      height: isWide ? 76 : 64,
-      borderRadius: isWide ? 24 : 20,
+      width: isWide ? 68 : 58,
+      height: isWide ? 68 : 58,
+      borderRadius: isWide ? 20 : 18,
       backgroundColor: colors.primarySubtle,
       borderWidth: 1.5,
       borderColor: colors.primaryBorder,
       alignItems: 'center',
       justifyContent: 'center',
-      marginBottom: isWide ? 20 : 16,
+      marginBottom: isWide ? 18 : 14,
     },
     title: {
-      fontSize: isWide ? 28 : 22,
+      fontSize: isWide ? 26 : 21,
       fontWeight: '800',
       color: colors.textPrimary,
-      marginBottom: isWide ? 12 : 10,
+      marginBottom: isWide ? 10 : 8,
       textAlign: 'center',
       letterSpacing: -0.4,
     },
     description: {
-      fontSize: isWide ? 16 : 14,
+      fontSize: isWide ? 15 : 14,
       color: colors.textSecondary,
       textAlign: 'center',
-      lineHeight: isWide ? 26 : 22,
-      marginBottom: isWide ? 36 : 28,
-      maxWidth: 680,
+      lineHeight: isWide ? 24 : 22,
+      marginBottom: isWide ? 32 : 24,
+      maxWidth: 620,
     },
     bold: {
       color: colors.textPrimary,
       fontWeight: '600',
     },
-    accentText: {
+    tokenI: {
+      color: colors.primary,
+      fontWeight: '700',
+    },
+    tokenPlusOne: {
       color: colors.targetToken,
       fontWeight: '700',
     },
-    guideCard: {
+    demoCard: {
       width: '100%',
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
-      borderRadius: isWide ? 20 : 16,
-      padding: isWide ? 28 : 20,
-      gap: isWide ? 20 : 16,
+      borderRadius: isWide ? 18 : 16,
+      padding: isWide ? 26 : 18,
+      gap: isWide ? 18 : 14,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.03,
       shadowRadius: 8,
       elevation: 2,
     },
-    guideTitle: {
-      fontSize: 13,
-      fontWeight: '700',
-      color: colors.textSecondary,
-      textTransform: 'uppercase',
-      letterSpacing: 0.6,
-    },
-    stepsContainer: {
-      flexDirection: isDesktop ? 'row' : 'column',
-      gap: isDesktop ? 20 : 16,
-    },
-    stepItem: {
-      flex: isDesktop ? 1 : undefined,
-      flexDirection: isDesktop ? 'column' : 'row',
-      alignItems: isDesktop ? 'flex-start' : 'center',
-      gap: 12,
-      backgroundColor: isDesktop ? colors.surfaceHover : 'transparent',
-      borderRadius: isDesktop ? 14 : 0,
-      padding: isDesktop ? 16 : 0,
-      borderWidth: isDesktop ? 1 : 0,
-      borderColor: isDesktop ? colors.surfaceBorder : 'transparent',
-    },
-    stepNumber: {
-      width: isWide ? 28 : 24,
-      height: isWide ? 28 : 24,
-      borderRadius: isWide ? 14 : 12,
-      backgroundColor: colors.primarySubtle,
-      borderWidth: 1,
-      borderColor: colors.primaryBorder,
+    demoHeader: {
+      flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
+      justifyContent: 'space-between',
+      borderBottomWidth: 1,
+      borderBottomColor: colors.surfaceBorder,
+      paddingBottom: 12,
     },
-    stepNumberText: {
-      fontSize: isWide ? 13 : 12,
+    demoBadge: {
+      fontSize: 12,
       fontWeight: '700',
       color: colors.primary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
     },
-    stepContent: {
-      flex: 1,
+    demoSub: {
+      fontSize: 12,
+      color: colors.textMuted,
+      fontWeight: '500',
     },
-    stepHeading: {
-      fontSize: isWide ? 15 : 14,
-      fontWeight: '700',
+    sentencePreview: {
+      backgroundColor: colors.surfaceHover,
+      borderRadius: 12,
+      padding: isWide ? 18 : 14,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      gap: 8,
+    },
+    previewEn: {
+      fontSize: isWide ? 16 : 15,
       color: colors.textPrimary,
-      marginBottom: 3,
+      fontWeight: '500',
+      lineHeight: isWide ? 24 : 22,
     },
-    stepText: {
-      fontSize: isWide ? 13 : 13,
+    previewHighlight: {
+      color: colors.targetToken,
+      fontWeight: '700',
+      backgroundColor: colors.targetTokenSubtle,
+      paddingHorizontal: 4,
+      borderRadius: 4,
+    },
+    previewPt: {
+      fontSize: isWide ? 14 : 13,
       color: colors.textSecondary,
       lineHeight: isWide ? 20 : 18,
+    },
+    previewPtHighlight: {
+      color: colors.textPrimary,
+      fontWeight: '600',
+    },
+    equationRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-around',
+      paddingTop: 4,
+      gap: 12,
+    },
+    equationBlock: {
+      flex: 1,
+      alignItems: 'center',
+      gap: 4,
+    },
+    equationSymbol: {
+      fontSize: 22,
+      fontWeight: '800',
+      color: colors.primary,
+    },
+    equationPlusOne: {
+      color: colors.targetToken,
+    },
+    equationDesc: {
+      fontSize: isWide ? 12 : 11,
+      color: colors.textMuted,
+      textAlign: 'center',
+      lineHeight: 16,
+    },
+    equationPlus: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: colors.textMuted,
+      marginBottom: 16,
     },
   });

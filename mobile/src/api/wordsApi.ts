@@ -82,6 +82,7 @@ export interface WordSuggestion {
 /**
  * Fetches real-time autocomplete and spell-correction suggestions while the user types.
  * Combines local backend repository matches with Datamuse lexical/spellcheck suggestions.
+ * Optimized with single-pass candidate partitioning (js-combine-iterations).
  */
 export async function fetchWordSuggestions(
   query: string,
@@ -107,47 +108,69 @@ export async function fetchWordSuggestions(
       }).then((r) => (r.ok ? (r.json() as Promise<Array<{ word: string }>>) : [])),
     ]);
 
-    clearTimeout(timeoutId);
+    const seen = new Set<string>();
+    const prefixMatches: string[] = [];
+    const fuzzyMatches: string[] = [];
 
-    const recentMatches = recentSearches
-      .map((s) => s.trim().toLowerCase())
-      .filter((s) => s.startsWith(cleanQuery) && s !== cleanQuery);
+    const addCandidate = (raw: string | undefined | null) => {
+      if (!raw) return;
+      const term = raw.trim().toLowerCase();
+      if (!term || term === cleanQuery || seen.has(term)) return;
+      seen.add(term);
 
-    const backendWords = backendRes.status === 'fulfilled' ? backendRes.value : [];
-    const sugWords =
-      datamuseSugRes.status === 'fulfilled' ? datamuseSugRes.value.map((x) => x.word) : [];
+      if (term.startsWith(cleanQuery)) {
+        if (prefixMatches.length < 5) {
+          prefixMatches.push(term);
+        }
+      } else {
+        if (fuzzyMatches.length < 3) {
+          fuzzyMatches.push(term);
+        }
+      }
+    };
 
-    const allCandidates = [
-      ...recentMatches,
-      ...backendWords,
-      ...sugWords,
-      ...Object.keys(MOCK_WORDS).filter((w) => w.startsWith(cleanQuery)),
-    ]
-      .map((w) => w.trim().toLowerCase())
-      .filter((w) => Boolean(w) && w !== cleanQuery);
+    // 1. Process recent searches first (highest personal relevance)
+    for (let i = 0; i < recentSearches.length; i++) {
+      addCandidate(recentSearches[i]);
+    }
 
-    const uniqueCandidates = Array.from(new Set(allCandidates));
+    // 2. Process backend repository matches
+    if (backendRes.status === 'fulfilled') {
+      const backendWords = backendRes.value;
+      for (let i = 0; i < backendWords.length; i++) {
+        addCandidate(backendWords[i]);
+      }
+    }
 
-    // Separate genuine prefix completions (e.g. "app" -> "apple") from fuzzy typo corrections (e.g. "aple" -> "apple")
-    const prefixMatches = uniqueCandidates.filter((w) => w.startsWith(cleanQuery));
-    const fuzzyMatches = uniqueCandidates.filter((w) => !w.startsWith(cleanQuery));
+    // 3. Process datamuse suggestions
+    if (datamuseSugRes.status === 'fulfilled') {
+      const sugWords = datamuseSugRes.value;
+      for (let i = 0; i < sugWords.length; i++) {
+        addCandidate(sugWords[i]?.word);
+      }
+    }
 
-    // If the user typed a valid prefix (like "app" or "apple"), only show clean prefix completions
+    // 4. Process mock words
+    const mockKeys = Object.keys(MOCK_WORDS);
+    for (let i = 0; i < mockKeys.length; i++) {
+      addCandidate(mockKeys[i]);
+    }
+
     if (prefixMatches.length > 0) {
-      return prefixMatches.slice(0, 5).map((word) => ({
+      return prefixMatches.map((word) => ({
         word,
         isCorrection: false,
       }));
     }
 
-    // Otherwise, the user likely made a typo (like "aple"): return the top correction(s)
-    return fuzzyMatches.slice(0, 3).map((word, idx) => ({
+    return fuzzyMatches.map((word, idx) => ({
       word,
       isCorrection: idx === 0,
     }));
   } catch {
-    clearTimeout(timeoutId);
     return [];
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
@@ -196,11 +219,11 @@ export async function lookupWord(term: string): Promise<WordLookupResponseDto> {
   const baseUrl = await getApiBaseUrl();
 
   let response: Response;
-  try {
-    const controller = new AbortController();
-    // 45s timeout to comfortably accommodate free-tier cloud cold starts and LLM generation
-    const timeoutId = setTimeout(() => controller.abort(), 45000);
+  const controller = new AbortController();
+  // 45s timeout to comfortably accommodate free-tier cloud cold starts and LLM generation
+  const timeoutId = setTimeout(() => controller.abort(), 45000);
 
+  try {
     response = await fetch(`${baseUrl}/api/Words/${encodeURIComponent(cleanTerm)}`, {
       method: 'GET',
       headers: {
@@ -208,11 +231,9 @@ export async function lookupWord(term: string): Promise<WordLookupResponseDto> {
       },
       signal: controller.signal,
     });
-
-    clearTimeout(timeoutId);
   } catch (err: any) {
-    // If backend is not running or network request failed, check if mock word exists
-    if (MOCK_WORDS[cleanTerm]) {
+    // If backend is not running or network request failed, check if mock word exists safely
+    if (Object.prototype.hasOwnProperty.call(MOCK_WORDS, cleanTerm)) {
       return MOCK_WORDS[cleanTerm];
     }
 
@@ -225,6 +246,8 @@ export async function lookupWord(term: string): Promise<WordLookupResponseDto> {
     throw new Error(
       'Não foi possível conectar ao servidor. Verifique sua conexão com a internet ou tente novamente mais tarde.'
     );
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   if (response.ok) {
