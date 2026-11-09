@@ -65,7 +65,8 @@ public class WordLookupService : IWordLookupService
                 {
                     Id = Guid.NewGuid(),
                     SentenceEn = trimmedEn,
-                    SentencePt = s.Pt.Trim()
+                    SentencePt = s.Pt.Trim(),
+                CreatedAt = DateTime.UtcNow
                 });
             }
         }
@@ -171,7 +172,8 @@ public class WordLookupService : IWordLookupService
             {
                 Id = Guid.NewGuid(),
                 SentenceEn = s.En.Trim(),
-                SentencePt = s.Pt.Trim()
+                SentencePt = s.Pt.Trim(),
+                CreatedAt = DateTime.UtcNow
             }).ToList();
 
             await _wordRepository.AddAsync(new Word
