@@ -1,4 +1,5 @@
-{$SITE_ADDRESS::80} {
+{$SITE_ADDRESS} {
+    tls /etc/caddy/certs/cert.pem /etc/caddy/certs/key.pem
     encode gzip
 
     # Proxy API & documentation routes to the .NET backend container
