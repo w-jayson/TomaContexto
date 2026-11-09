@@ -50,6 +50,8 @@ appsettings.local.json
 .env
 .env.*
 !.env.example
+certs/
+*.pem
 
 ## Mobile (Node / React Native / Expo)
 node_modules/
