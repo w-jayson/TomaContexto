@@ -125,7 +125,21 @@ public class InMemoryWordRepository : IWordRepository
         }
 
         var normalizedKey = Normalize(word.Term);
-        _words.AddOrUpdate(normalizedKey, word, (_, _) => word);
+        _words.AddOrUpdate(normalizedKey, word, (_, existing) =>
+        {
+            if (word.Sentences != null)
+            {
+                foreach (var incoming in word.Sentences)
+                {
+                    var normalizedEn = incoming.SentenceEn.Trim();
+                    if (!existing.Sentences.Any(s => s.SentenceEn.Trim().Equals(normalizedEn, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        existing.Sentences.Add(incoming);
+                    }
+                }
+            }
+            return existing;
+        });
         return Task.CompletedTask;
     }
 

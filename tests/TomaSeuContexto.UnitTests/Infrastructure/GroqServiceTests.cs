@@ -285,6 +285,69 @@ public class GroqServiceTests
         result.ShouldContain("banana");
     }
 
+    [Fact]
+    public async Task GenerateMoreSentencesAsync_WhenApiKeyIsEmpty_ShouldThrowAiServiceUnavailableException()
+    {
+        // Arrange
+        var handler = new TestHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        var httpClient = new HttpClient(handler);
+        var options = Options.Create(new GroqOptions { ApiKey = "" });
+        var service = new GroqService(httpClient, options, NullLogger<GroqService>.Instance);
+
+        var previousEnvKey = Environment.GetEnvironmentVariable("GROQ_API_KEY");
+        try
+        {
+            Environment.SetEnvironmentVariable("GROQ_API_KEY", null);
+            await Should.ThrowAsync<AiServiceUnavailableException>(() =>
+                service.GenerateMoreSentencesAsync("resilience", new[] { "Existing sentence 1" }));
+            handler.CallCount.ShouldBe(0);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GROQ_API_KEY", previousEnvKey);
+        }
+    }
+
+    [Fact]
+    public async Task GenerateMoreSentencesAsync_WithValidResponse_ShouldParseAndExcludeDuplicates()
+    {
+        // Arrange
+        var mockJsonContent = """
+        {
+          "choices": [
+            {
+              "message": {
+                "content": "{\"sentences\": [{\"en\": \"Existing sentence 1\", \"pt\": \"Frase já existente\"}, {\"en\": \"New daily life sentence.\", \"pt\": \"Nova frase do dia a dia.\"}, {\"en\": \"New work context sentence.\", \"pt\": \"Nova frase de trabalho.\"}]}"
+              }
+            }
+          ]
+        }
+        """;
+
+        var handler = new TestHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(mockJsonContent)
+        });
+
+        var httpClient = new HttpClient(handler);
+        var options = Options.Create(new GroqOptions
+        {
+            ApiKey = "gsk_test123",
+            Endpoint = "https://api.groq.com/openai/v1/chat/completions"
+        });
+
+        var service = new GroqService(httpClient, options, NullLogger<GroqService>.Instance);
+
+        // Act
+        var result = await service.GenerateMoreSentencesAsync("resilience", new[] { "Existing sentence 1" });
+
+        // Assert
+        result.Count.ShouldBe(2);
+        result.ShouldNotContain(s => s.En == "Existing sentence 1");
+        result.ShouldContain(s => s.En == "New daily life sentence.");
+        result.ShouldContain(s => s.En == "New work context sentence.");
+    }
+
     private sealed class TestHttpMessageHandler : HttpMessageHandler
     {
         private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder;

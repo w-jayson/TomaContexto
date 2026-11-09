@@ -1,9 +1,9 @@
 import { Platform } from 'react-native';
 import * as Speech from 'expo-speech';
-import { Audio } from 'expo-av';
+
 import { getApiBaseUrl } from '../api/config';
 
-let currentSound: Audio.Sound | null = null;
+let currentSound: any = null;
 let currentWebAudio: HTMLAudioElement | null = null;
 
 export interface PlayAudioOptions {
@@ -27,8 +27,13 @@ export async function stopAudio(): Promise<void> {
     }
 
     if (currentSound) {
-      await currentSound.stopAsync();
-      await currentSound.unloadAsync();
+      if (typeof currentSound.stopAsync === 'function') {
+        await currentSound.stopAsync();
+      }
+      if (typeof currentSound.unloadAsync === 'function') {
+        await currentSound.unloadAsync();
+      }
+
       currentSound = null;
     }
 
@@ -109,10 +114,11 @@ export async function playSmartAudio(options: PlayAudioOptions): Promise<void> {
   // 2. MOBILE PLATFORMS (Android / iOS): expo-av
   if (Platform.OS !== 'web' && audioUrl) {
     try {
+      const { Audio } = require('expo-av');
       const { sound } = await Audio.Sound.createAsync(
         { uri: audioUrl },
         { shouldPlay: true, rate: 1.0 },
-        (status) => {
+        (status: any) => {
           if (status.isLoaded && status.didJustFinish) {
             currentSound = null;
             onDone?.();

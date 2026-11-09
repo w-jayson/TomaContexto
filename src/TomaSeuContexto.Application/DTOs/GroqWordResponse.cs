@@ -1,4 +1,4 @@
-﻿namespace TomaSeuContexto.Application.DTOs;
+namespace TomaSeuContexto.Application.DTOs;
 
 using System.Text.Json.Serialization;
 
@@ -33,4 +33,10 @@ public class GroqSentenceResponse
 
     [JsonPropertyName("pt")]
     public string Pt { get; set; } = string.Empty;
+}
+
+public class GroqMoreSentencesResponse
+{
+    [JsonPropertyName("sentences")]
+    public List<GroqSentenceResponse> Sentences { get; set; } = new();
 }

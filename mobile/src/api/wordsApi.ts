@@ -1,4 +1,4 @@
-import { WordLookupResponseDto } from '../types/word';
+import { WordLookupResponseDto, SentencePairDto } from '../types/word';
 import { getApiBaseUrl } from './config';
 
 // Mock words available for offline preview or immediate design verification
@@ -278,4 +278,108 @@ export async function lookupWord(term: string): Promise<WordLookupResponseDto> {
   }
 
   throw new Error(`Erro no servidor (status ${response.status}). Tente novamente mais tarde.`);
+}
+
+/**
+ * Fetches additional contextual sentences for a word, passing already displayed sentences
+ * so the AI generates diverse, non-repeating sentences across various contexts (daily life, work, travel, academic).
+ */
+export async function fetchMoreSentences(
+  term: string,
+  existingSentences: string[] = []
+): Promise<SentencePairDto[]> {
+  const cleanTerm = term.trim().toLowerCase();
+  if (!cleanTerm || cleanTerm.length > MAX_SEARCH_LENGTH) {
+    return [];
+  }
+
+  // Client-side sliding window rate limit check
+  const now = Date.now();
+  while (requestTimestamps.length > 0 && now - requestTimestamps[0] > CLIENT_RATE_LIMIT_WINDOW_MS) {
+    requestTimestamps.shift();
+  }
+  if (requestTimestamps.length >= CLIENT_RATE_LIMIT_MAX_REQUESTS) {
+    const retrySeconds = Math.ceil(
+      (CLIENT_RATE_LIMIT_WINDOW_MS - (now - requestTimestamps[0])) / 1000
+    );
+    throw new Error(
+      `Muitas requisições em pouco tempo. Aguarde cerca de ${retrySeconds}s antes de buscar mais frases.`
+    );
+  }
+  requestTimestamps.push(now);
+
+  const baseUrl = await getApiBaseUrl();
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 45000);
+
+  try {
+    const response = await fetch(`${baseUrl}/api/Words/${encodeURIComponent(cleanTerm)}/sentences`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        existingSentences,
+      }),
+      signal: controller.signal,
+    });
+
+    if (response.ok) {
+      const data: SentencePairDto[] = await response.json();
+      return data;
+    }
+
+    if (response.status === 429) {
+      const retryAfter = response.headers.get('Retry-After');
+      const waitHint = retryAfter ? ` Aguarde ${retryAfter}s e tente novamente.` : ' Aguarde alguns instantes.';
+      throw new Error(`Limite de requisições atingido.${waitHint}`);
+    }
+
+    if (response.status === 502 || response.status === 503) {
+      throw new Error(
+        'O serviço de inteligência artificial está temporariamente indisponível. Tente novamente em instantes.'
+      );
+    }
+
+    throw new Error(`Erro ao gerar novas frases (status ${response.status}). Tente novamente.`);
+  } catch (err: any) {
+    // If backend is not running or offline preview, provide contextual mock sentences
+    if (Object.prototype.hasOwnProperty.call(MOCK_WORDS, cleanTerm)) {
+      const mock = MOCK_WORDS[cleanTerm];
+      const existingSet = new Set(existingSentences.map((s) => s.toLowerCase().trim()));
+      const unserved = mock.exampleSentences.filter(
+        (s) => !existingSet.has(s.en.toLowerCase().trim())
+      );
+      if (unserved.length > 0) {
+        return unserved;
+      }
+      return [
+        {
+          en: `In everyday life, practicing ${cleanTerm} brings peace of mind and resilience.`,
+          pt: `No dia a dia, praticar ${cleanTerm} traz tranquilidade e resiliência.`,
+        },
+        {
+          en: `At work, our team demonstrated ${cleanTerm} when delivering the project on a tight schedule.`,
+          pt: `No trabalho, nossa equipe demonstrou ${cleanTerm} ao entregar o projeto em um prazo apertado.`,
+        },
+        {
+          en: `While traveling in foreign cities, ${cleanTerm} often turns unexpected hurdles into great stories.`,
+          pt: `Ao viajar por cidades estrangeiras, ${cleanTerm} frequentemente transforma obstáculos imprevistos em ótimas histórias.`,
+        },
+        {
+          en: `Recent academic studies argue that ${cleanTerm} plays a vital role in cognitive development.`,
+          pt: `Estudos acadêmicos recentes defendem que ${cleanTerm} desempenha um papel vital no desenvolvimento cognitivo.`,
+        },
+      ];
+    }
+
+    if (err.name === 'AbortError') {
+      throw new Error('A geração de novas frases demorou para responder. Por favor, tente novamente!');
+    }
+
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
