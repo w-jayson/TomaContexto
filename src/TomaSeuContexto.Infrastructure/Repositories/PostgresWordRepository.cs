@@ -174,6 +174,16 @@ public class PostgresWordRepository : IWordRepository
             }
             else
             {
+                if (incomingSentence.Id == Guid.Empty)
+                {
+                    incomingSentence.Id = Guid.NewGuid();
+                }
+                if (incomingSentence.CreatedAt == default)
+                {
+                    incomingSentence.CreatedAt = DateTime.UtcNow;
+                }
+
+                await _context.Sentences.AddAsync(incomingSentence, cancellationToken);
                 resolvedSentences.Add(incomingSentence);
             }
         }
@@ -204,6 +214,16 @@ public class PostgresWordRepository : IWordRepository
             }
             else
             {
+                if (incoming.Id == Guid.Empty)
+                {
+                    incoming.Id = Guid.NewGuid();
+                }
+                if (incoming.CreatedAt == default)
+                {
+                    incoming.CreatedAt = DateTime.UtcNow;
+                }
+
+                await _context.Sentences.AddAsync(incoming, cancellationToken);
                 word.Sentences.Add(incoming);
             }
         }
