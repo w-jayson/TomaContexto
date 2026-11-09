@@ -105,6 +105,101 @@ public class WordLookupService : IWordLookupService
         return await _wordRepository.GetSuggestionsAsync(query.Trim(), maxResults, cancellationToken);
     }
 
+    public async Task<List<SentencePairDto>> GetMoreSentencesAsync(
+        string rawTerm,
+        IEnumerable<string>? existingSentences = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(rawTerm))
+        {
+            return new List<SentencePairDto>();
+        }
+
+        var normalizedTerm = rawTerm.Trim().ToLowerInvariant();
+        if (normalizedTerm.Length > MaxTermLength)
+        {
+            return new List<SentencePairDto>();
+        }
+
+        var existingList = (existingSentences ?? Enumerable.Empty<string>())
+            .Select(s => s.Trim())
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        // 1. Check if the word is already cached in local repository
+        var cachedWord = await _wordRepository.GetByTermAsync(normalizedTerm, cancellationToken);
+
+        // 2. Identify unserved sentences already stored in the local cache
+        var unservedFromCache = new List<SentencePairDto>();
+        if (cachedWord is not null)
+        {
+            unservedFromCache = cachedWord.Sentences
+                .Where(s => !existingList.Any(existing => existing.Equals(s.SentenceEn.Trim(), StringComparison.OrdinalIgnoreCase)))
+                .Select(s => new SentencePairDto(s.SentenceEn, s.SentencePt))
+                .ToList();
+
+            // If we have at least 4 unserved sentences in the local repository, serve them immediately!
+            if (unservedFromCache.Count >= 4)
+            {
+                return unservedFromCache.Take(4).ToList();
+            }
+        }
+
+        // 3. Call Groq with all known sentences to generate a new batch of 4 unique contextual sentences
+        var allKnownSentences = existingList
+            .Concat(cachedWord?.Sentences.Select(s => s.SentenceEn.Trim()) ?? Enumerable.Empty<string>())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var generated = await _groqService.GenerateMoreSentencesAsync(normalizedTerm, allKnownSentences, cancellationToken);
+        if (generated is null || generated.Count == 0)
+        {
+            return unservedFromCache;
+        }
+
+        // Filter against all known sentences
+        var newSentences = generated
+            .Where(g => !allKnownSentences.Any(k => k.Equals(g.En.Trim(), StringComparison.OrdinalIgnoreCase)))
+            .DistinctBy(g => g.En.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        // 4. Save newly generated sentences to the database cache for the word
+        if (cachedWord is not null && newSentences.Count > 0)
+        {
+            var sentencesToAdd = newSentences.Select(s => new Sentence
+            {
+                Id = Guid.NewGuid(),
+                SentenceEn = s.En.Trim(),
+                SentencePt = s.Pt.Trim()
+            }).ToList();
+
+            await _wordRepository.AddAsync(new Word
+            {
+                Id = cachedWord.Id,
+                Term = cachedWord.Term,
+                Phonetic = cachedWord.Phonetic,
+                CreatedAt = cachedWord.CreatedAt,
+                Translations = cachedWord.Translations,
+                Sentences = sentencesToAdd
+            }, cancellationToken);
+        }
+
+        // Combine any unserved sentences with new sentences
+        if (unservedFromCache.Count > 0)
+        {
+            var combined = unservedFromCache
+                .Concat(newSentences)
+                .DistinctBy(s => s.En.Trim(), StringComparer.OrdinalIgnoreCase)
+                .Take(4)
+                .ToList();
+
+            return combined;
+        }
+
+        return newSentences.Take(4).ToList();
+    }
+
     private static WordLookupResponseDto MapToResponseDto(Word word)
     {
         var translationsByPos = word.Translations
@@ -117,6 +212,7 @@ public class WordLookupService : IWordLookupService
 
         var exampleSentences = word.Sentences
             .Select(s => new SentencePairDto(s.SentenceEn, s.SentencePt))
+            .Take(4)
             .ToList();
 
         return new WordLookupResponseDto(

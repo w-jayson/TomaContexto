@@ -132,4 +132,31 @@ public class WordsControllerTests
         problem.Detail.ShouldContain(WordLookupService.MaxTermLength.ToString());
         _fakeGroq.CallCount.ShouldBe(0);
     }
+
+    [Fact]
+    public async Task GetMoreSentences_WithValidSeedWord_ShouldReturn200OkWithSentences()
+    {
+        // Act
+        var actionResult = await _controller.GetMoreSentences("in disbelief", new MoreSentencesRequest(), CancellationToken.None);
+
+        // Assert
+        var okResult = actionResult.ShouldBeOfType<OkObjectResult>();
+        okResult.StatusCode.ShouldBe(StatusCodes.Status200OK);
+
+        var sentences = okResult.Value.ShouldBeOfType<List<SentencePairDto>>();
+        sentences.ShouldNotBeNull();
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task GetMoreSentences_WithEmptyTerm_ShouldReturn400BadRequest(string invalidTerm)
+    {
+        // Act
+        var actionResult = await _controller.GetMoreSentences(invalidTerm, null, CancellationToken.None);
+
+        // Assert
+        var objectResult = actionResult.ShouldBeOfType<ObjectResult>();
+        objectResult.StatusCode.ShouldBe(StatusCodes.Status400BadRequest);
+    }
 }

@@ -243,5 +243,83 @@ public class WordLookupServiceTests
         typoSuggestions.ShouldContain("apple");
         prefixSuggestions.ShouldContain("breakthrough");
     }
-}
 
+    [Fact]
+    public async Task GetMoreSentencesAsync_WhenCacheHasUnservedSentences_ShouldReturnThemWithoutCallingGroq()
+    {
+        // Arrange
+        var testWordId = Guid.NewGuid();
+        var word = new Word
+        {
+            Id = testWordId,
+            Term = "clarity",
+            Phonetic = "/ˈklær.ə.ti/",
+            Translations = new List<WordTranslation>
+            {
+                new() { Id = Guid.NewGuid(), WordId = testWordId, PartOfSpeech = "Noun", Translation = "clareza" }
+            },
+            Sentences = new List<Sentence>
+            {
+                new() { Id = Guid.NewGuid(), SentenceEn = "Sentence 1", SentencePt = "Frase 1" },
+                new() { Id = Guid.NewGuid(), SentenceEn = "Sentence 2", SentencePt = "Frase 2" },
+                new() { Id = Guid.NewGuid(), SentenceEn = "Sentence 3", SentencePt = "Frase 3" },
+                new() { Id = Guid.NewGuid(), SentenceEn = "Sentence 4", SentencePt = "Frase 4" },
+                new() { Id = Guid.NewGuid(), SentenceEn = "Sentence 5", SentencePt = "Frase 5" },
+                new() { Id = Guid.NewGuid(), SentenceEn = "Sentence 6", SentencePt = "Frase 6" },
+                new() { Id = Guid.NewGuid(), SentenceEn = "Sentence 7", SentencePt = "Frase 7" },
+                new() { Id = Guid.NewGuid(), SentenceEn = "Sentence 8", SentencePt = "Frase 8" }
+            }
+        };
+        await _repository.AddAsync(word);
+
+        // Act: User currently has Sentence 1 to 4 on screen, requests more
+        var result = await _service.GetMoreSentencesAsync("clarity", new List<string>
+        {
+            "Sentence 1", "Sentence 2", "Sentence 3", "Sentence 4"
+        });
+
+        // Assert: Returns Sentence 5, 6, 7, 8 from repository without invoking Groq
+        result.Count.ShouldBe(4);
+        result.ShouldContain(s => s.En == "Sentence 5");
+        result.ShouldContain(s => s.En == "Sentence 8");
+        _fakeGroq.MoreSentencesCallCount.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task GetMoreSentencesAsync_WhenCacheExhausted_ShouldCallGroqAndPersistNewSentences()
+    {
+        // Arrange
+        var term = "breakthrough";
+        // Seeds for 'breakthrough' have 2 sentences.
+        var existingSentences = new List<string>
+        {
+            "Scientists made a major breakthrough in cancer research.",
+            "This discovery is seen as a historic breakthrough."
+        };
+
+        var groqGenerated = new List<SentencePairDto>
+        {
+            new("In everyday life, small breakthroughs matter.", "No dia a dia, pequenas conquistas importam."),
+            new("The tech startup had a major breakthrough this quarter.", "A startup de tecnologia teve um grande avanço neste trimestre."),
+            new("While traveling, he had a breakthrough in learning the local dialect.", "Ao viajar, ele teve um avanço no aprendizado do dialeto local."),
+            new("Academic researchers celebrated the new breakthrough.", "Pesquisadores acadêmicos celebraram a nova descoberta.")
+        };
+
+        _fakeGroq.MoreSentencesHandler = (t, existing) => Task.FromResult(groqGenerated);
+
+        // Act
+        var result = await _service.GetMoreSentencesAsync(term, existingSentences);
+
+        // Assert
+        result.Count.ShouldBe(4);
+        result[0].En.ShouldBe("In everyday life, small breakthroughs matter.");
+        _fakeGroq.MoreSentencesCallCount.ShouldBe(1);
+        _fakeGroq.LastExistingSentences.ShouldNotBeNull();
+        _fakeGroq.LastExistingSentences.ShouldContain("Scientists made a major breakthrough in cancer research.");
+
+        // Check that sentences were persisted to repository
+        var cached = await _repository.GetByTermAsync(term);
+        cached.ShouldNotBeNull();
+        cached.Sentences.Count.ShouldBe(6); // 2 original + 4 newly generated
+    }
+}

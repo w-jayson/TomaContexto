@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import { ThemeColors } from './src/theme/colors';
 import { WordLookupResponseDto } from './src/types/word';
-import { lookupWord, fetchDidYouMean } from './src/api/wordsApi';
+import { lookupWord, fetchDidYouMean, fetchMoreSentences } from './src/api/wordsApi';
 import { getRecentSearches, addRecentSearch } from './src/utils/storage';
 import { useResponsive } from './src/utils/useResponsive';
 
@@ -44,6 +44,8 @@ function MainApp() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [moreSentencesError, setMoreSentencesError] = useState<string | null>(null);
 
   useEffect(() => {
     let timer: any;
@@ -76,6 +78,8 @@ function MainApp() {
       setIsLoading(true);
       setErrorMessage(null);
       setDidYouMeanTerm(null);
+      setMoreSentencesError(null);
+      setIsLoadingMore(false);
 
       try {
         const data = await lookupWord(target);
@@ -116,6 +120,87 @@ function MainApp() {
       handleSearch(term);
     },
     [handleSearch]
+  );
+
+  const handleLoadMoreSentences = useCallback(async () => {
+    if (!wordData || isLoadingMore) return;
+
+    setIsLoadingMore(true);
+    setMoreSentencesError(null);
+
+    try {
+      const existingEnList = wordData.exampleSentences.map((s) => s.en);
+      const newSentences = await fetchMoreSentences(wordData.term, existingEnList);
+
+      if (newSentences && newSentences.length > 0) {
+        setWordData((prev) => {
+          if (!prev) return prev;
+          const existingSet = new Set(prev.exampleSentences.map((s) => s.en.toLowerCase().trim()));
+          const uniqueNew = newSentences.filter(
+            (s) => !existingSet.has(s.en.toLowerCase().trim())
+          );
+          if (uniqueNew.length === 0) return prev;
+          return {
+            ...prev,
+            exampleSentences: [...prev.exampleSentences, ...uniqueNew],
+          };
+        });
+      }
+    } catch (err: any) {
+      setMoreSentencesError(err.message || 'Não foi possível carregar novas frases.');
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [wordData, isLoadingMore]);
+
+  const renderLoadMoreSection = () => (
+    <View style={styles.loadMoreSection}>
+      {moreSentencesError ? (
+        <View style={styles.loadMoreErrorBox}>
+          <Ionicons name="alert-circle-outline" size={18} color={colors.error} />
+          <Text style={styles.loadMoreErrorText}>{moreSentencesError}</Text>
+          <TouchableOpacity
+            style={styles.loadMoreRetryBtn}
+            onPress={handleLoadMoreSentences}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.loadMoreRetryText}>Tentar de novo</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
+      <TouchableOpacity
+        style={[
+          styles.loadMoreButton,
+          isLoadingMore && styles.loadMoreButtonDisabled,
+        ]}
+        onPress={handleLoadMoreSentences}
+        disabled={isLoadingMore}
+        activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityLabel="Buscar mais frases de exemplo"
+        accessibilityState={{ busy: isLoadingMore }}
+      >
+        {isLoadingMore ? (
+          <View style={styles.loadMoreButtonInner}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={styles.loadMoreButtonTextLoading}>Minerando mais 4 frases no contexto i+1...</Text>
+          </View>
+        ) : (
+          <View style={styles.loadMoreButtonInner}>
+            <Ionicons name="sparkles" size={18} color={colors.primary} />
+            <Text style={styles.loadMoreButtonText}>Buscar mais frases</Text>
+            <View style={styles.loadMoreBadge}>
+              <Text style={styles.loadMoreBadgeText}>+4</Text>
+            </View>
+          </View>
+        )}
+      </TouchableOpacity>
+
+      <Text style={styles.loadMoreContextHint}>
+        Explorando contextos variados: dia a dia, trabalho, viagens e acadêmico.
+      </Text>
+    </View>
   );
 
   return (
@@ -229,6 +314,8 @@ function MainApp() {
                         keyword={wordData.term}
                       />
                     ))}
+
+                    {renderLoadMoreSection()}
                   </View>
                 </View>
               ) : (
@@ -256,6 +343,8 @@ function MainApp() {
                       keyword={wordData.term}
                     />
                   ))}
+
+                  {renderLoadMoreSection()}
                 </View>
               )}
             </View>
@@ -420,6 +509,108 @@ const createStyles = (
       fontSize: isWide ? 13 : 12,
       color: colors.textMuted,
       marginTop: 3,
+    },
+    loadMoreSection: {
+      marginTop: 14,
+      marginBottom: 32,
+      alignItems: 'center',
+      width: '100%',
+      paddingHorizontal: isDesktop ? 0 : isWide ? 32 : 20,
+    },
+    loadMoreButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.surface,
+      borderWidth: 1.5,
+      borderColor: colors.primaryBorder,
+      paddingVertical: 14,
+      paddingHorizontal: 24,
+      borderRadius: 14,
+      width: isDesktop || isWide ? 380 : '100%',
+      ...(Platform.OS === 'web'
+        ? ({
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
+          } as any)
+        : {
+            elevation: 2,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.1,
+            shadowRadius: 3,
+          }),
+    },
+    loadMoreButtonDisabled: {
+      opacity: 0.75,
+      borderColor: colors.surfaceBorder,
+    },
+    loadMoreButtonInner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+    },
+    loadMoreButtonText: {
+      color: colors.textPrimary,
+      fontSize: isWide ? 15 : 14,
+      fontWeight: '600',
+      letterSpacing: 0.2,
+    },
+    loadMoreButtonTextLoading: {
+      color: colors.textSecondary,
+      fontSize: 13,
+      fontWeight: '500',
+    },
+    loadMoreBadge: {
+      backgroundColor: colors.primarySubtle,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.primaryBorder,
+    },
+    loadMoreBadgeText: {
+      color: colors.primary,
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    loadMoreContextHint: {
+      color: colors.textMuted,
+      fontSize: 12,
+      textAlign: 'center',
+      marginTop: 8,
+      maxWidth: 380,
+      lineHeight: 16,
+    },
+    loadMoreErrorBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.errorSubtle,
+      borderWidth: 1,
+      borderColor: colors.error,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 10,
+      marginBottom: 10,
+      width: isDesktop || isWide ? 380 : '100%',
+      gap: 8,
+    },
+    loadMoreErrorText: {
+      flex: 1,
+      color: colors.error,
+      fontSize: 13,
+    },
+    loadMoreRetryBtn: {
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+    },
+    loadMoreRetryText: {
+      color: colors.primary,
+      fontWeight: '600',
+      fontSize: 12,
+      textDecorationLine: 'underline',
     },
     boldKeyword: {
       fontWeight: '700',

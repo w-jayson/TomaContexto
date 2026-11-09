@@ -79,4 +79,50 @@ public class WordsController : ControllerBase
 
         return Ok(result);
     }
+
+    /// <summary>
+    /// Generates or fetches additional context sentences for a vocabulary term.
+    /// </summary>
+    /// <param name="term">The vocabulary word or multi-word expression.</param>
+    /// <param name="request">Optional list of already displayed sentences to avoid duplication.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A list of up to 4 new contextual sentences.</returns>
+    [HttpPost("{term}/sentences")]
+    [HttpPost("{term}/more-sentences")]
+    [EnableRateLimiting("SearchPolicy")]
+    [ProducesResponseType(typeof(List<SentencePairDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> GetMoreSentences(
+        [FromRoute] string term,
+        [FromBody] MoreSentencesRequest? request,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(term))
+        {
+            return Problem(
+                title: "Invalid term",
+                detail: "The 'term' parameter must not be empty or whitespace.",
+                statusCode: StatusCodes.Status400BadRequest
+            );
+        }
+
+        var trimmedTerm = term.Trim();
+        if (trimmedTerm.Length > WordLookupService.MaxTermLength)
+        {
+            return Problem(
+                title: "Term too long",
+                detail: $"The 'term' parameter must not exceed {WordLookupService.MaxTermLength} characters.",
+                statusCode: StatusCodes.Status400BadRequest
+            );
+        }
+
+        var sentences = await _wordLookupService.GetMoreSentencesAsync(
+            trimmedTerm,
+            request?.ExistingSentences,
+            cancellationToken);
+
+        return Ok(sentences);
+    }
 }

@@ -1,4 +1,4 @@
-﻿namespace TomaSeuContexto.UnitTests.Fakes;
+namespace TomaSeuContexto.UnitTests.Fakes;
 
 using TomaSeuContexto.Application.DTOs;
 using TomaSeuContexto.Application.Interfaces;
@@ -6,8 +6,11 @@ using TomaSeuContexto.Application.Interfaces;
 public class FakeGroqService : IGroqService
 {
     public Func<string, Task<WordLookupResponseDto?>>? Handler { get; set; }
+    public Func<string, IEnumerable<string>?, Task<List<SentencePairDto>>>? MoreSentencesHandler { get; set; }
     public int CallCount { get; private set; }
+    public int MoreSentencesCallCount { get; private set; }
     public string? LastQueriedTerm { get; private set; }
+    public List<string>? LastExistingSentences { get; private set; }
 
     public Task<WordLookupResponseDto?> QueryTermAsync(string term, CancellationToken cancellationToken = default)
     {
@@ -16,5 +19,15 @@ public class FakeGroqService : IGroqService
         return Handler != null
             ? Handler(term)
             : Task.FromResult<WordLookupResponseDto?>(null);
+    }
+
+    public Task<List<SentencePairDto>> GenerateMoreSentencesAsync(string term, IEnumerable<string>? existingSentences = null, CancellationToken cancellationToken = default)
+    {
+        MoreSentencesCallCount++;
+        LastQueriedTerm = term;
+        LastExistingSentences = existingSentences?.ToList();
+        return MoreSentencesHandler != null
+            ? MoreSentencesHandler(term, existingSentences)
+            : Task.FromResult(new List<SentencePairDto>());
     }
 }
