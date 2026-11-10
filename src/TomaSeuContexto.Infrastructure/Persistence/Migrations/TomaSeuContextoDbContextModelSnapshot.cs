@@ -72,6 +72,27 @@ namespace TomaSeuContexto.Infrastructure.Persistence.Migrations
                     b.ToTable("Words");
                 });
 
+            modelBuilder.Entity("TomaSeuContexto.Domain.Entities.WordSynonym", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Synonym")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<Guid>("WordId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WordId");
+
+                    b.ToTable("WordSynonyms");
+                });
+
             modelBuilder.Entity("TomaSeuContexto.Domain.Entities.WordTranslation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -113,6 +134,15 @@ namespace TomaSeuContexto.Infrastructure.Persistence.Migrations
                     b.ToTable("WordSentences");
                 });
 
+            modelBuilder.Entity("TomaSeuContexto.Domain.Entities.WordSynonym", b =>
+                {
+                    b.HasOne("TomaSeuContexto.Domain.Entities.Word", null)
+                        .WithMany("Synonyms")
+                        .HasForeignKey("WordId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("TomaSeuContexto.Domain.Entities.WordTranslation", b =>
                 {
                     b.HasOne("TomaSeuContexto.Domain.Entities.Word", null)
@@ -139,6 +169,8 @@ namespace TomaSeuContexto.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("TomaSeuContexto.Domain.Entities.Word", b =>
                 {
+                    b.Navigation("Synonyms");
+
                     b.Navigation("Translations");
                 });
 #pragma warning restore 612, 618

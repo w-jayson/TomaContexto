@@ -26,6 +26,7 @@ public class PostgresWordRepository : IWordRepository
 
         return await _context.Words
             .Include(w => w.Translations)
+            .Include(w => w.Synonyms)
             .Include(w => w.Sentences)
             .AsSplitQuery()
             .AsNoTracking()
@@ -149,12 +150,14 @@ public class PostgresWordRepository : IWordRepository
 
         var existingWord = await _context.Words
             .Include(w => w.Sentences)
+            .Include(w => w.Synonyms)
             .FirstOrDefaultAsync(w => w.Term == word.Term, cancellationToken);
 
         if (existingWord is not null)
         {
             // If the word already exists, ensure any new sentences are attached
             await AttachSentencesAsync(existingWord, word.Sentences, cancellationToken);
+            AttachSynonyms(existingWord, word.Synonyms);
             await _context.SaveChangesAsync(cancellationToken);
             return;
         }
@@ -189,6 +192,19 @@ public class PostgresWordRepository : IWordRepository
         }
 
         word.Sentences = resolvedSentences;
+
+        // Ensure IDs on synonyms
+        if (word.Synonyms != null)
+        {
+            foreach (var syn in word.Synonyms)
+            {
+                if (syn.Id == Guid.Empty)
+                {
+                    syn.Id = Guid.NewGuid();
+                }
+                syn.WordId = word.Id;
+            }
+        }
 
         await _context.Words.AddAsync(word, cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);
@@ -225,6 +241,27 @@ public class PostgresWordRepository : IWordRepository
 
                 await _context.Sentences.AddAsync(incoming, cancellationToken);
                 word.Sentences.Add(incoming);
+            }
+        }
+    }
+
+    private static void AttachSynonyms(Word word, IEnumerable<WordSynonym> newSynonyms)
+    {
+        if (newSynonyms == null) return;
+
+        foreach (var incoming in newSynonyms)
+        {
+            var normalizedSyn = incoming.Synonym.Trim();
+            if (string.IsNullOrWhiteSpace(normalizedSyn)) continue;
+
+            if (!word.Synonyms.Any(s => s.Synonym.Equals(normalizedSyn, StringComparison.OrdinalIgnoreCase)))
+            {
+                word.Synonyms.Add(new WordSynonym
+                {
+                    Id = Guid.NewGuid(),
+                    WordId = word.Id,
+                    Synonym = normalizedSyn
+                });
             }
         }
     }

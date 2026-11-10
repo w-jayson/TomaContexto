@@ -138,6 +138,17 @@ public class InMemoryWordRepository : IWordRepository
                     }
                 }
             }
+            if (word.Synonyms != null)
+            {
+                foreach (var incoming in word.Synonyms)
+                {
+                    var normalizedSyn = incoming.Synonym.Trim();
+                    if (!existing.Synonyms.Any(s => s.Synonym.Trim().Equals(normalizedSyn, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        existing.Synonyms.Add(incoming);
+                    }
+                }
+            }
             return existing;
         });
         return Task.CompletedTask;

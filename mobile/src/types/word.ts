@@ -13,6 +13,7 @@ export interface WordLookupResponseDto {
   phonetic?: string | null;
   translationsByPos: TranslationGroupDto[];
   exampleSentences: SentencePairDto[];
+  synonyms?: string[];
 }
 
 export interface SavedWord {
