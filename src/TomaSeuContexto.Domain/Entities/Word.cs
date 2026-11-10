@@ -1,4 +1,4 @@
-﻿namespace TomaSeuContexto.Domain.Entities;
+namespace TomaSeuContexto.Domain.Entities;
 
 public class Word
 {
@@ -7,5 +7,6 @@ public class Word
     public string? Phonetic { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public ICollection<WordTranslation> Translations { get; set; } = new List<WordTranslation>();
+    public ICollection<WordSynonym> Synonyms { get; set; } = new List<WordSynonym>();
     public ICollection<Sentence> Sentences { get; set; } = new List<Sentence>();
 }

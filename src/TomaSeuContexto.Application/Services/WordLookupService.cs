@@ -66,7 +66,7 @@ public class WordLookupService : IWordLookupService
                     Id = Guid.NewGuid(),
                     SentenceEn = trimmedEn,
                     SentencePt = s.Pt.Trim(),
-                CreatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.UtcNow
                 });
             }
         }
@@ -87,6 +87,14 @@ public class WordLookupService : IWordLookupService
                     PartOfSpeech = group.PartOfSpeech,
                     Translation = t
                 }))
+                .ToList(),
+            Synonyms = (groqResult.Synonyms ?? new List<string>())
+                .Select(syn => new WordSynonym
+                {
+                    Id = Guid.NewGuid(),
+                    WordId = wordId,
+                    Synonym = syn
+                })
                 .ToList(),
             Sentences = resolvedSentences
         };
@@ -183,6 +191,7 @@ public class WordLookupService : IWordLookupService
                 Phonetic = cachedWord.Phonetic,
                 CreatedAt = cachedWord.CreatedAt,
                 Translations = cachedWord.Translations,
+                Synonyms = cachedWord.Synonyms,
                 Sentences = sentencesToAdd
             }, cancellationToken);
         }
@@ -217,11 +226,18 @@ public class WordLookupService : IWordLookupService
             .Take(4)
             .ToList();
 
+        var synonyms = word.Synonyms
+            .Select(s => s.Synonym.Trim())
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
         return new WordLookupResponseDto(
             word.Term,
             word.Phonetic,
             translationsByPos,
-            exampleSentences
+            exampleSentences,
+            synonyms
         );
     }
 }

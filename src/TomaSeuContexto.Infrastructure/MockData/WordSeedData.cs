@@ -1,4 +1,4 @@
-﻿namespace TomaSeuContexto.Infrastructure.MockData;
+namespace TomaSeuContexto.Infrastructure.MockData;
 
 using TomaSeuContexto.Domain.Entities;
 
@@ -18,6 +18,14 @@ public static class WordSeedData
                 new() { Id = Guid.NewGuid(), WordId = disbeliefId, PartOfSpeech = "Idiom", Translation = "com descrença" },
                 new() { Id = Guid.NewGuid(), WordId = disbeliefId, PartOfSpeech = "Idiom", Translation = "em choque" },
                 new() { Id = Guid.NewGuid(), WordId = disbeliefId, PartOfSpeech = "Adverb", Translation = "incrédulo" }
+            },
+            Synonyms = new List<WordSynonym>
+            {
+                new() { Id = Guid.NewGuid(), WordId = disbeliefId, Synonym = "in shock" },
+                new() { Id = Guid.NewGuid(), WordId = disbeliefId, Synonym = "skeptical" },
+                new() { Id = Guid.NewGuid(), WordId = disbeliefId, Synonym = "incredulous" },
+                new() { Id = Guid.NewGuid(), WordId = disbeliefId, Synonym = "astonished" },
+                new() { Id = Guid.NewGuid(), WordId = disbeliefId, Synonym = "dumbfounded" }
             },
             Sentences = new List<Sentence>
             {
@@ -48,6 +56,13 @@ public static class WordSeedData
                 new() { Id = Guid.NewGuid(), WordId = runOutOfId, PartOfSpeech = "Phrasal Verb", Translation = "ficar sem" },
                 new() { Id = Guid.NewGuid(), WordId = runOutOfId, PartOfSpeech = "Phrasal Verb", Translation = "esgotar" }
             },
+            Synonyms = new List<WordSynonym>
+            {
+                new() { Id = Guid.NewGuid(), WordId = runOutOfId, Synonym = "deplete" },
+                new() { Id = Guid.NewGuid(), WordId = runOutOfId, Synonym = "exhaust" },
+                new() { Id = Guid.NewGuid(), WordId = runOutOfId, Synonym = "use up" },
+                new() { Id = Guid.NewGuid(), WordId = runOutOfId, Synonym = "drain" }
+            },
             Sentences = new List<Sentence>
             {
                 new()
@@ -77,6 +92,14 @@ public static class WordSeedData
                 new() { Id = Guid.NewGuid(), WordId = breakthroughId, PartOfSpeech = "Noun", Translation = "avanço" },
                 new() { Id = Guid.NewGuid(), WordId = breakthroughId, PartOfSpeech = "Noun", Translation = "descoberta importante" },
                 new() { Id = Guid.NewGuid(), WordId = breakthroughId, PartOfSpeech = "Noun", Translation = "conquista" }
+            },
+            Synonyms = new List<WordSynonym>
+            {
+                new() { Id = Guid.NewGuid(), WordId = breakthroughId, Synonym = "advance" },
+                new() { Id = Guid.NewGuid(), WordId = breakthroughId, Synonym = "discovery" },
+                new() { Id = Guid.NewGuid(), WordId = breakthroughId, Synonym = "leap" },
+                new() { Id = Guid.NewGuid(), WordId = breakthroughId, Synonym = "milestone" },
+                new() { Id = Guid.NewGuid(), WordId = breakthroughId, Synonym = "innovation" }
             },
             Sentences = new List<Sentence>
             {

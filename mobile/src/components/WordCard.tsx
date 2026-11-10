@@ -9,9 +9,10 @@ import { playSmartAudio } from '../utils/audioPlayer';
 
 interface WordCardProps {
   word: WordLookupResponseDto;
+  onSelectSynonym?: (synonym: string) => void;
 }
 
-const WordCardComponent: React.FC<WordCardProps> = ({ word }) => {
+const WordCardComponent: React.FC<WordCardProps> = ({ word, onSelectSynonym }) => {
   const { colors } = useTheme();
   const { isWide, isDesktop } = useResponsive();
   const styles = useMemo(() => createStyles(colors, isWide, isDesktop), [colors, isWide, isDesktop]);
@@ -125,6 +126,47 @@ const WordCardComponent: React.FC<WordCardProps> = ({ word }) => {
           );
         })}
       </View>
+
+      {/* Synonyms Section */}
+      {word.synonyms && word.synonyms.length > 0 ? (
+        <View style={styles.synonymsSection}>
+          <View style={styles.synonymsHeader}>
+            <View style={styles.synonymsTitleRow}>
+              <Ionicons
+                name="swap-horizontal-outline"
+                size={isWide ? 15 : 14}
+                color={colors.primary}
+              />
+              <Text style={styles.synonymsTitle}>Sinônimos</Text>
+            </View>
+            <Text style={styles.synonymsSubtitle}>Toque para pesquisar</Text>
+          </View>
+
+          <View style={styles.synonymsList}>
+            {word.synonyms.map((synonym, sIndex) => (
+              <TouchableOpacity
+                key={`${synonym}-${sIndex}`}
+                style={styles.synonymChip}
+                onPress={() => onSelectSynonym?.(synonym)}
+                activeOpacity={0.7}
+                disabled={!onSelectSynonym}
+                accessibilityRole="button"
+                accessibilityLabel={`Pesquisar sinônimo ${synonym}`}
+              >
+                <Text style={styles.synonymText}>{synonym}</Text>
+                {onSelectSynonym ? (
+                  <Ionicons
+                    name="arrow-forward"
+                    size={isWide ? 11 : 10}
+                    color={colors.primary}
+                    style={styles.synonymArrow}
+                  />
+                ) : null}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 };
@@ -231,5 +273,58 @@ const createStyles = (colors: ThemeColors, isWide: boolean, isDesktop: boolean) 
       fontSize: isWide ? 14 : 13,
       color: colors.textPrimary,
       fontWeight: '500',
+    },
+    synonymsSection: {
+      marginTop: isWide ? 18 : 14,
+      paddingTop: isWide ? 16 : 14,
+      borderTopWidth: 1,
+      borderTopColor: colors.surfaceBorder,
+      gap: 10,
+    },
+    synonymsHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    synonymsTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    synonymsTitle: {
+      fontSize: isWide ? 13 : 12,
+      fontWeight: '700',
+      color: colors.textPrimary,
+      letterSpacing: 0.3,
+      textTransform: 'uppercase',
+    },
+    synonymsSubtitle: {
+      fontSize: isWide ? 12 : 11,
+      color: colors.textMuted,
+    },
+    synonymsList: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    synonymChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: colors.primarySubtle,
+      borderWidth: 1,
+      borderColor: colors.primaryBorder,
+      paddingHorizontal: isWide ? 12 : 10,
+      paddingVertical: isWide ? 6 : 5,
+      borderRadius: 8,
+      ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+    },
+    synonymText: {
+      fontSize: isWide ? 13 : 12,
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    synonymArrow: {
+      opacity: 0.7,
     },
   });

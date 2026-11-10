@@ -13,6 +13,9 @@ public class GroqWordResponse
     [JsonPropertyName("categories")]
     public List<GroqCategoryResponse> Categories { get; set; } = new();
 
+    [JsonPropertyName("synonyms")]
+    public List<string> Synonyms { get; set; } = new();
+
     [JsonPropertyName("sentences")]
     public List<GroqSentenceResponse> Sentences { get; set; } = new();
 }

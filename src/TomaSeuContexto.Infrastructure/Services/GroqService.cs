@@ -111,11 +111,20 @@ public class GroqService : IGroqService
                 .Where(s => !string.IsNullOrWhiteSpace(s.En) && !string.IsNullOrWhiteSpace(s.Pt))
                 .ToList();
 
+            var synonyms = (groqWord.Synonyms ?? new List<string>())
+                .Select(CleanWhitespace)
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Where(s => !s.Equals(finalTerm, StringComparison.OrdinalIgnoreCase))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(8)
+                .ToList();
+
             return new WordLookupResponseDto(
                 finalTerm,
                 CleanWhitespace(groqWord.Phonetic),
                 translationsByPos,
-                sentences
+                sentences,
+                synonyms
             );
         }
         catch (AiServiceUnavailableException)

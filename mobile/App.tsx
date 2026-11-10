@@ -122,6 +122,14 @@ function MainApp() {
     [handleSearch]
   );
 
+  const handleSelectSynonym = useCallback(
+    (synonym: string) => {
+      setSearchTerm(synonym);
+      handleSearch(synonym);
+    },
+    [handleSearch]
+  );
+
   const handleLoadMoreSentences = useCallback(async () => {
     if (!wordData || isLoadingMore) return;
 
@@ -290,7 +298,7 @@ function MainApp() {
                 <View style={styles.desktopLayout}>
                   {/* Left Column: Word Anchor */}
                   <View style={styles.desktopSidebar}>
-                    <WordCard word={wordData} />
+                    <WordCard word={wordData} onSelectSynonym={handleSelectSynonym} />
                   </View>
 
                   {/* Right Column: Sentence Context Mining Stream */}
@@ -322,7 +330,7 @@ function MainApp() {
                 /* Mobile / Tablet Stacked Layout */
                 <View style={styles.stackedLayout}>
                   {/* Word Header Card */}
-                  <WordCard word={wordData} />
+                  <WordCard word={wordData} onSelectSynonym={handleSelectSynonym} />
 
                   {/* Sentence Mining Section */}
                   <View style={styles.sentencesHeader}>

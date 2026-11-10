@@ -1,4 +1,4 @@
-﻿namespace TomaSeuContexto.Infrastructure.Persistence;
+namespace TomaSeuContexto.Infrastructure.Persistence;
 
 using Microsoft.EntityFrameworkCore;
 using TomaSeuContexto.Domain.Entities;
@@ -11,6 +11,7 @@ public class TomaSeuContextoDbContext : DbContext
 
     public DbSet<Word> Words => Set<Word>();
     public DbSet<WordTranslation> WordTranslations => Set<WordTranslation>();
+    public DbSet<WordSynonym> WordSynonyms => Set<WordSynonym>();
     public DbSet<Sentence> Sentences => Set<Sentence>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -32,6 +33,11 @@ public class TomaSeuContextoDbContext : DbContext
                   .HasForeignKey(t => t.WordId)
                   .OnDelete(DeleteBehavior.Cascade);
 
+            entity.HasMany(w => w.Synonyms)
+                  .WithOne()
+                  .HasForeignKey(s => s.WordId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
             entity.HasMany(w => w.Sentences)
                   .WithMany(s => s.Words)
                   .UsingEntity<Dictionary<string, object>>(
@@ -45,6 +51,13 @@ public class TomaSeuContextoDbContext : DbContext
             entity.HasKey(t => t.Id);
             entity.Property(t => t.PartOfSpeech).IsRequired().HasMaxLength(100);
             entity.Property(t => t.Translation).IsRequired().HasMaxLength(250);
+        });
+
+        modelBuilder.Entity<WordSynonym>(entity =>
+        {
+            entity.HasKey(s => s.Id);
+            entity.Property(s => s.Synonym).IsRequired().HasMaxLength(150);
+            entity.HasIndex(s => s.WordId);
         });
 
         modelBuilder.Entity<Sentence>(entity =>

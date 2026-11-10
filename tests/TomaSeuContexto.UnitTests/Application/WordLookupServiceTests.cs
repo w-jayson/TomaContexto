@@ -322,4 +322,57 @@ public class WordLookupServiceTests
         cached.ShouldNotBeNull();
         cached.Sentences.Count.ShouldBe(6); // 2 original + 4 newly generated
     }
+
+    [Fact]
+    public async Task LookupTermAsync_WhenWordHasSynonymsInRepository_ShouldReturnSynonymsInDto()
+    {
+        // Act - breakthrough has seed synonyms configured
+        var result = await _service.LookupTermAsync("breakthrough");
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.Synonyms.ShouldNotBeEmpty();
+        result.Synonyms.ShouldContain("advance");
+        result.Synonyms.ShouldContain("discovery");
+        result.Synonyms.ShouldContain("leap");
+        result.Synonyms.ShouldContain("milestone");
+        result.Synonyms.ShouldContain("innovation");
+    }
+
+    [Fact]
+    public async Task LookupTermAsync_WhenGroqReturnsSynonyms_ShouldPersistAndReturnSynonyms()
+    {
+        // Arrange
+        var groqDto = new WordLookupResponseDto(
+            "unravel",
+            "/ʌnˈræv.əl/",
+            new List<TranslationGroupDto>
+            {
+                new("Verb", new List<string> { "desvendar", "desembaraçar" })
+            },
+            new List<SentencePairDto>
+            {
+                new("Detectives tried to unravel the mystery.", "Detetives tentaram desvendar o mistério.")
+            },
+            new List<string> { "solve", "untangle", "decipher", "resolve" }
+        );
+
+        _fakeGroq.Handler = _ => Task.FromResult<WordLookupResponseDto?>(groqDto);
+
+        // Act
+        var result = await _service.LookupTermAsync("unravel");
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.Synonyms.ShouldNotBeEmpty();
+        result.Synonyms.Count.ShouldBe(4);
+        result.Synonyms.ShouldContain("solve");
+        result.Synonyms.ShouldContain("decipher");
+
+        // Verify cached in repository
+        var cached = await _repository.GetByTermAsync("unravel");
+        cached.ShouldNotBeNull();
+        cached.Synonyms.Count.ShouldBe(4);
+        cached.Synonyms.Select(s => s.Synonym).ShouldContain("untangle");
+    }
 }
