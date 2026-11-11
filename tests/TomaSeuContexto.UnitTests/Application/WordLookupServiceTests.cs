@@ -375,4 +375,80 @@ public class WordLookupServiceTests
         cached.Synonyms.Count.ShouldBe(4);
         cached.Synonyms.Select(s => s.Synonym).ShouldContain("untangle");
     }
+
+    [Fact]
+    public async Task LookupTermAsync_WhenWordExistsInRepositoryWithoutSynonyms_ShouldEnrichAndPersistSynonyms()
+    {
+        // Arrange - Create a word that was stored prior to the synonyms feature (Synonyms list is empty)
+        var wordId = Guid.NewGuid();
+        var legacyWord = new Word
+        {
+            Id = wordId,
+            Term = "legacy",
+            Phonetic = "/ˈleɡ.ə.si/",
+            Translations = new List<WordTranslation>
+            {
+                new() { Id = Guid.NewGuid(), WordId = wordId, PartOfSpeech = "Noun", Translation = "legado" }
+            },
+            Sentences = new List<Sentence>
+            {
+                new() { Id = Guid.NewGuid(), SentenceEn = "He left a powerful legacy.", SentencePt = "Ele deixou um legado poderoso." }
+            },
+            Synonyms = new List<WordSynonym>() // Empty!
+        };
+        await _repository.AddAsync(legacyWord);
+
+        _fakeGroq.SynonymsHandler = term => Task.FromResult(new List<string> { "heritage", "inheritance", "bequest" });
+
+        // Act
+        var result = await _service.LookupTermAsync("legacy");
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.Synonyms.ShouldNotBeEmpty();
+        result.Synonyms.Count.ShouldBe(3);
+        result.Synonyms.ShouldContain("heritage");
+        result.Synonyms.ShouldContain("inheritance");
+        _fakeGroq.SynonymsCallCount.ShouldBe(1);
+
+        // Verify the synonyms were persisted into the repository so next time it is an instant cache hit
+        var cached = await _repository.GetByTermAsync("legacy");
+        cached.ShouldNotBeNull();
+        cached.Synonyms.Count.ShouldBe(3);
+        cached.Synonyms.Select(s => s.Synonym).ShouldContain("bequest");
+    }
+
+    [Fact]
+    public async Task LookupTermAsync_WhenWordExistsWithoutSynonymsAndAiFails_ShouldServeWordWithoutFailing()
+    {
+        // Arrange
+        var wordId = Guid.NewGuid();
+        var legacyWord = new Word
+        {
+            Id = wordId,
+            Term = "resilient",
+            Phonetic = "/rɪˈzɪl.jənt/",
+            Translations = new List<WordTranslation>
+            {
+                new() { Id = Guid.NewGuid(), WordId = wordId, PartOfSpeech = "Adjective", Translation = "resiliente" }
+            },
+            Sentences = new List<Sentence>
+            {
+                new() { Id = Guid.NewGuid(), SentenceEn = "She is very resilient.", SentencePt = "Ela é muito resiliente." }
+            },
+            Synonyms = new List<WordSynonym>()
+        };
+        await _repository.AddAsync(legacyWord);
+
+        // AI throws error
+        _fakeGroq.SynonymsHandler = _ => throw new Exception("Groq timeout");
+
+        // Act
+        var result = await _service.LookupTermAsync("resilient");
+
+        // Assert - Should not throw, should return existing word cleanly
+        result.ShouldNotBeNull();
+        result.Term.ShouldBe("resilient");
+        result.TranslationsByPos.ShouldNotBeEmpty();
+    }
 }

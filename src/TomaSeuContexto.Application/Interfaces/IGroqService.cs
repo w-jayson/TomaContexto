@@ -6,4 +6,5 @@ public interface IGroqService
 {
     Task<WordLookupResponseDto?> QueryTermAsync(string term, CancellationToken cancellationToken = default);
     Task<List<SentencePairDto>> GenerateMoreSentencesAsync(string term, IEnumerable<string>? existingSentences = null, CancellationToken cancellationToken = default);
+    Task<List<string>> GetSynonymsAsync(string term, CancellationToken cancellationToken = default);
 }

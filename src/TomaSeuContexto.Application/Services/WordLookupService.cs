@@ -34,6 +34,41 @@ public class WordLookupService : IWordLookupService
         var cachedWord = await _wordRepository.GetByTermAsync(normalizedTerm, cancellationToken);
         if (cachedWord is not null)
         {
+            // Backfill / Lazy Enrichment: If the word was saved prior to the synonyms feature, enrich it now
+            if (cachedWord.Synonyms == null || cachedWord.Synonyms.Count == 0)
+            {
+                try
+                {
+                    var fetchedSynonyms = await _groqService.GetSynonymsAsync(normalizedTerm, cancellationToken);
+                    if (fetchedSynonyms.Count > 0)
+                    {
+                        var newSynonymEntities = fetchedSynonyms.Select(s => new WordSynonym
+                        {
+                            Id = Guid.NewGuid(),
+                            WordId = cachedWord.Id,
+                            Synonym = s
+                        }).ToList();
+
+                        await _wordRepository.AddAsync(new Word
+                        {
+                            Id = cachedWord.Id,
+                            Term = cachedWord.Term,
+                            Phonetic = cachedWord.Phonetic,
+                            CreatedAt = cachedWord.CreatedAt,
+                            Translations = cachedWord.Translations,
+                            Sentences = cachedWord.Sentences,
+                            Synonyms = newSynonymEntities
+                        }, cancellationToken);
+
+                        cachedWord.Synonyms = newSynonymEntities;
+                    }
+                }
+                catch
+                {
+                    // Non-blocking: If AI service fails, serve existing cached word
+                }
+            }
+
             return MapToResponseDto(cachedWord);
         }
 
