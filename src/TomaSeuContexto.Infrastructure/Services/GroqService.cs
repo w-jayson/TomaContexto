@@ -269,6 +269,81 @@ Regras obrigatórias:
         }
     }
 
+    public async Task<List<string>> GetSynonymsAsync(string term, CancellationToken cancellationToken = default)
+    {
+        var apiKey = !string.IsNullOrWhiteSpace(_options.ApiKey)
+            ? _options.ApiKey
+            : Environment.GetEnvironmentVariable("GROQ_API_KEY");
+
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            _logger.LogWarning("Groq API key is not configured. Cannot fetch synonyms for term '{Term}'.", term);
+            return new List<string>();
+        }
+
+        try
+        {
+            var systemPrompt = @"Você é um motor lexicográfico especializado em língua inglesa.
+O usuário enviará uma palavra ou expressão idiomática em inglês.
+Você DEVE responder ESTRITAMENTE com um objeto JSON válido, sem texto ou Markdown adicional, no formato:
+{
+  ""synonyms"": [""sinônimo 1"", ""sinônimo 2"", ""sinônimo 3"", ""sinônimo 4""]
+}
+Regras:
+1. Forneça de 3 a 6 sinônimos ou termos semanticamente próximos em inglês, em minúsculas.
+2. É EXPRESSAMENTE PROIBIDO retornar o próprio termo buscado ou apenas variações de maiúsculas/minúsculas.
+3. Se não houver sinônimos diretos ou for uma expressão sem equivalentes, retorne [].";
+
+            var requestPayload = new
+            {
+                model = string.IsNullOrWhiteSpace(_options.Model) ? "llama-3.3-70b-versatile" : _options.Model,
+                messages = new object[]
+                {
+                    new { role = "system", content = systemPrompt },
+                    new { role = "user", content = term }
+                },
+                response_format = new { type = "json_object" },
+                temperature = 0.2
+            };
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, _options.Endpoint)
+            {
+                Content = JsonContent.Create(requestPayload)
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+
+            var response = await _httpClient.SendAsync(request, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Groq API returned HTTP {StatusCode} when fetching synonyms for '{Term}'.", response.StatusCode, term);
+                return new List<string>();
+            }
+
+            var responseJson = await response.Content.ReadFromJsonAsync<GroqChatCompletionResponse>(cancellationToken: cancellationToken);
+            var rawContent = responseJson?.Choices?.FirstOrDefault()?.Message?.Content;
+            if (string.IsNullOrWhiteSpace(rawContent))
+            {
+                return new List<string>();
+            }
+
+            var parsed = JsonSerializer.Deserialize<GroqSynonymsResponse>(rawContent, JsonOptions);
+            var cleanTerm = CleanWhitespace(term).ToLowerInvariant();
+
+            return (parsed?.Synonyms ?? new List<string>())
+                .Select(CleanWhitespace)
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Where(s => !s.Equals(cleanTerm, StringComparison.OrdinalIgnoreCase))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(8)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to get synonyms from Groq for '{Term}': {Message}", term, ex.Message);
+            return new List<string>();
+        }
+    }
+
     public static List<string> FilterValidTranslations(
         IEnumerable<string>? rawTranslations,
         string inputTerm,

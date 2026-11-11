@@ -43,3 +43,9 @@ public class GroqMoreSentencesResponse
     [JsonPropertyName("sentences")]
     public List<GroqSentenceResponse> Sentences { get; set; } = new();
 }
+
+public class GroqSynonymsResponse
+{
+    [JsonPropertyName("synonyms")]
+    public List<string> Synonyms { get; set; } = new();
+}
