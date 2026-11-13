@@ -19,6 +19,17 @@ builder.Configuration.AddJsonFile("appsettings.local.json", optional: true, relo
 
 // Options configuration
 builder.Services.Configure<GroqOptions>(builder.Configuration.GetSection(GroqOptions.SectionName));
+builder.Services.Configure<GeminiOptions>(builder.Configuration.GetSection(GeminiOptions.SectionName));
+
+var aiProviderEnv = Environment.GetEnvironmentVariable("AI_PROVIDER");
+builder.Services.Configure<AiOptions>(options =>
+{
+    builder.Configuration.GetSection(AiOptions.SectionName).Bind(options);
+    if (!string.IsNullOrWhiteSpace(aiProviderEnv))
+    {
+        options.Provider = aiProviderEnv;
+    }
+});
 
 var googleTtsApiKey = Environment.GetEnvironmentVariable("GOOGLE_TTS_API_KEY");
 builder.Services.Configure<GoogleTtsOptions>(options =>
@@ -113,7 +124,9 @@ else
     builder.Services.AddSingleton<IWordRepository, InMemoryWordRepository>();
 }
 
-builder.Services.AddHttpClient<IGroqService, GroqService>();
+builder.Services.AddHttpClient<GroqService>();
+builder.Services.AddHttpClient<GeminiService>();
+builder.Services.AddScoped<IGroqService, AiProviderService>();
 builder.Services.AddHttpClient<ITtsService, GoogleTtsService>();
 builder.Services.AddScoped<IWordLookupService, WordLookupService>();
 
