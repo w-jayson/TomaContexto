@@ -451,4 +451,64 @@ public class WordLookupServiceTests
         result.Term.ShouldBe("resilient");
         result.TranslationsByPos.ShouldNotBeEmpty();
     }
+
+    [Fact]
+    public async Task LookupTermAsync_WhenWordCreatedBeforeCutoff_ShouldLazilyEnrichTranslationsOnce()
+    {
+        // Arrange
+        var wordId = Guid.NewGuid();
+        var legacyWord = new Word
+        {
+            Id = wordId,
+            Term = "hurt",
+            Phonetic = "/hɜːrt/",
+            CreatedAt = WordLookupService.TranslationsEnrichmentCutoffUtc.AddDays(-1),
+            Translations = new List<WordTranslation>
+            {
+                new() { Id = Guid.NewGuid(), WordId = wordId, PartOfSpeech = "Verbo", Translation = "machucar" },
+                new() { Id = Guid.NewGuid(), WordId = wordId, PartOfSpeech = "Verbo", Translation = "ferir" }
+            },
+            Sentences = new List<Sentence>
+            {
+                new() { Id = Guid.NewGuid(), SentenceEn = "I hurt my knee.", SentencePt = "Eu machuquei meu joelho." }
+            },
+            Synonyms = new List<WordSynonym>
+            {
+                new() { Id = Guid.NewGuid(), WordId = wordId, Synonym = "injure" }
+            }
+        };
+        await _repository.AddAsync(legacyWord);
+
+        _fakeGroq.Handler = _ => Task.FromResult<WordLookupResponseDto?>(new WordLookupResponseDto(
+            "hurt",
+            "/hɜːrt/",
+            new List<TranslationGroupDto>
+            {
+                new("Verbo", new List<string> { "machucar", "ferir", "prejudicar", "afetar negativamente" })
+            },
+            new List<SentencePairDto>
+            {
+                new("The new policy could hurt small businesses.", "A nova política pode prejudicar pequenas empresas.")
+            },
+            new List<string> { "injure", "harm", "damage" }
+        ));
+
+        // Act 1 - Triggers lazy enrichment
+        var result1 = await _service.LookupTermAsync("hurt");
+
+        // Assert 1
+        result1.ShouldNotBeNull();
+        _fakeGroq.CallCount.ShouldBe(1);
+        var verbGroup = result1.TranslationsByPos.First(g => g.PartOfSpeech == "Verbo");
+        verbGroup.Translations.ShouldContain("machucar");
+        verbGroup.Translations.ShouldContain("prejudicar");
+        verbGroup.Translations.ShouldContain("afetar negativamente");
+
+        // Act 2 - Subsequent lookup uses updated cache without calling Groq again
+        var result2 = await _service.LookupTermAsync("hurt");
+
+        // Assert 2
+        result2.ShouldNotBeNull();
+        _fakeGroq.CallCount.ShouldBe(1);
+    }
 }
