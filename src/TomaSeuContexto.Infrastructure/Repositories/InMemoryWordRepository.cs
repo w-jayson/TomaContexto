@@ -127,6 +127,24 @@ public class InMemoryWordRepository : IWordRepository
         var normalizedKey = Normalize(word.Term);
         _words.AddOrUpdate(normalizedKey, word, (_, existing) =>
         {
+            if (word.Translations != null)
+            {
+                foreach (var incoming in word.Translations)
+                {
+                    var pos = incoming.PartOfSpeech.Trim();
+                    var translation = incoming.Translation.Trim();
+                    if (string.IsNullOrWhiteSpace(pos) || string.IsNullOrWhiteSpace(translation)) continue;
+
+                    var alreadyExists = existing.Translations.Any(t =>
+                        t.PartOfSpeech.Trim().Equals(pos, StringComparison.OrdinalIgnoreCase) &&
+                        t.Translation.Trim().Equals(translation, StringComparison.OrdinalIgnoreCase));
+
+                    if (!alreadyExists)
+                    {
+                        existing.Translations.Add(incoming);
+                    }
+                }
+            }
             if (word.Sentences != null)
             {
                 foreach (var incoming in word.Sentences)
@@ -148,6 +166,10 @@ public class InMemoryWordRepository : IWordRepository
                         existing.Synonyms.Add(incoming);
                     }
                 }
+            }
+            if (word.CreatedAt > existing.CreatedAt)
+            {
+                existing.CreatedAt = word.CreatedAt;
             }
             return existing;
         });

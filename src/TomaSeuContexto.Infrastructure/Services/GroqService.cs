@@ -178,7 +178,7 @@ Regras obrigatórias:
    - Frase 3: Viagens / situações sociais (hotéis, restaurantes, aeroportos, lazer, cultura, eventos).
    - Frase 4: Acadêmico / leitura / notícias (estudos, ciência, debates ou literatura).
 3. É EXPRESSAMENTE PROIBIDO repetir ou parafrasear frases fornecidas na lista de frases já existentes. Varie sujeito, tempo verbal e estrutura sintática.
-4. Use apenas espaços e caracteres padrão ASCII (U+0020). NUNCA use espaços insecáveis ou narrow no-break space (\u202F ou \u00A0).";
+4. Revise rigorosamente a ortografia e acentuação do português do Brasil (pt-BR) nas traduções (ex.: 'sofá', 'magoar', 'machuquei'), sem erros de digitação. Use apenas espaços comuns (U+0020), nunca espaços insecáveis (\u202F ou \u00A0).";
 
             var userContent = new StringBuilder();
             userContent.AppendLine($"Palavra ou expressão em inglês: {term}");
@@ -209,7 +209,7 @@ Regras obrigatórias:
                     new { role = "user", content = userContent.ToString() }
                 },
                 response_format = new { type = "json_object" },
-                temperature = 0.4
+                temperature = 0.2
             };
 
             using var request = new HttpRequestMessage(HttpMethod.Post, _options.Endpoint)

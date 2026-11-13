@@ -7,6 +7,7 @@ using TomaSeuContexto.Domain.Entities;
 public class WordLookupService : IWordLookupService
 {
     public const int MaxTermLength = 80;
+    public static readonly DateTime TranslationsEnrichmentCutoffUtc = new(2026, 11, 13, 13, 20, 0, DateTimeKind.Utc);
 
     private readonly IWordRepository _wordRepository;
     private readonly IGroqService _groqService;
@@ -34,6 +35,12 @@ public class WordLookupService : IWordLookupService
         var cachedWord = await _wordRepository.GetByTermAsync(normalizedTerm, cancellationToken);
         if (cachedWord is not null)
         {
+            // Backfill / Lazy Enrichment: Words saved prior to the polysemy prompt update are enriched once
+            if (cachedWord.CreatedAt > DateTime.MinValue && cachedWord.CreatedAt < TranslationsEnrichmentCutoffUtc)
+            {
+                await EnrichCachedWordFromGroqAsync(cachedWord, normalizedTerm, cancellationToken);
+            }
+
             // Backfill / Lazy Enrichment: If the word was saved prior to the synonyms feature, enrich it now
             if (cachedWord.Synonyms == null || cachedWord.Synonyms.Count == 0)
             {
@@ -244,6 +251,99 @@ public class WordLookupService : IWordLookupService
         }
 
         return newSentences.Take(4).ToList();
+    }
+
+    private async Task EnrichCachedWordFromGroqAsync(Word cachedWord, string normalizedTerm, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var groqResult = await _groqService.QueryTermAsync(normalizedTerm, cancellationToken);
+            if (groqResult is null)
+            {
+                return;
+            }
+
+            var resolvedTerm = groqResult.Term.Trim().ToLowerInvariant();
+            if (!string.Equals(resolvedTerm, normalizedTerm, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            var enrichedAt = DateTime.UtcNow;
+
+            var newTranslations = groqResult.TranslationsByPos
+                .SelectMany(group => group.Translations.Select(t => new WordTranslation
+                {
+                    Id = Guid.NewGuid(),
+                    WordId = cachedWord.Id,
+                    PartOfSpeech = group.PartOfSpeech,
+                    Translation = t
+                }))
+                .ToList();
+
+            var newSentences = groqResult.ExampleSentences
+                .Select(s => new Sentence
+                {
+                    Id = Guid.NewGuid(),
+                    SentenceEn = s.En.Trim(),
+                    SentencePt = s.Pt.Trim(),
+                    CreatedAt = enrichedAt
+                })
+                .ToList();
+
+            var newSynonyms = (groqResult.Synonyms ?? new List<string>())
+                .Select(syn => new WordSynonym
+                {
+                    Id = Guid.NewGuid(),
+                    WordId = cachedWord.Id,
+                    Synonym = syn
+                })
+                .ToList();
+
+            await _wordRepository.AddAsync(new Word
+            {
+                Id = cachedWord.Id,
+                Term = cachedWord.Term,
+                Phonetic = cachedWord.Phonetic,
+                CreatedAt = enrichedAt,
+                Translations = newTranslations,
+                Sentences = newSentences,
+                Synonyms = newSynonyms
+            }, cancellationToken);
+
+            // Re-read or sync in-memory reference so the current response reflects all enriched items
+            foreach (var incoming in newTranslations)
+            {
+                if (!cachedWord.Translations.Any(t =>
+                    t.PartOfSpeech.Trim().Equals(incoming.PartOfSpeech.Trim(), StringComparison.OrdinalIgnoreCase) &&
+                    t.Translation.Trim().Equals(incoming.Translation.Trim(), StringComparison.OrdinalIgnoreCase)))
+                {
+                    cachedWord.Translations.Add(incoming);
+                }
+            }
+
+            foreach (var incoming in newSentences)
+            {
+                if (!cachedWord.Sentences.Any(s => s.SentenceEn.Trim().Equals(incoming.SentenceEn, StringComparison.OrdinalIgnoreCase)))
+                {
+                    cachedWord.Sentences.Add(incoming);
+                }
+            }
+
+            foreach (var incoming in newSynonyms)
+            {
+                if (!cachedWord.Synonyms.Any(s => s.Synonym.Trim().Equals(incoming.Synonym.Trim(), StringComparison.OrdinalIgnoreCase)))
+                {
+                    cachedWord.Synonyms.Add(incoming);
+                }
+            }
+
+            cachedWord.CreatedAt = enrichedAt;
+        }
+        catch
+        {
+            // Non-blocking: If AI service fails, serve existing cached word
+        }
     }
 
     private static WordLookupResponseDto MapToResponseDto(Word word)

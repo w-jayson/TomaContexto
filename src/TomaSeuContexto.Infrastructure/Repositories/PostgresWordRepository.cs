@@ -149,15 +149,21 @@ public class PostgresWordRepository : IWordRepository
         word.Term = word.Term.Trim().ToLowerInvariant();
 
         var existingWord = await _context.Words
+            .Include(w => w.Translations)
             .Include(w => w.Sentences)
             .Include(w => w.Synonyms)
             .FirstOrDefaultAsync(w => w.Term == word.Term, cancellationToken);
 
         if (existingWord is not null)
         {
-            // If the word already exists, ensure any new sentences are attached
+            // If the word already exists, ensure any new translations, sentences, and synonyms are attached
+            AttachTranslations(existingWord, word.Translations);
             await AttachSentencesAsync(existingWord, word.Sentences, cancellationToken);
             AttachSynonyms(existingWord, word.Synonyms);
+            if (word.CreatedAt > existingWord.CreatedAt)
+            {
+                existingWord.CreatedAt = word.CreatedAt;
+            }
             await _context.SaveChangesAsync(cancellationToken);
             return;
         }
@@ -241,6 +247,33 @@ public class PostgresWordRepository : IWordRepository
 
                 await _context.Sentences.AddAsync(incoming, cancellationToken);
                 word.Sentences.Add(incoming);
+            }
+        }
+    }
+
+    private static void AttachTranslations(Word word, IEnumerable<WordTranslation> newTranslations)
+    {
+        if (newTranslations == null) return;
+
+        foreach (var incoming in newTranslations)
+        {
+            var pos = incoming.PartOfSpeech.Trim();
+            var translation = incoming.Translation.Trim();
+            if (string.IsNullOrWhiteSpace(pos) || string.IsNullOrWhiteSpace(translation)) continue;
+
+            var alreadyExists = word.Translations.Any(t =>
+                t.PartOfSpeech.Trim().Equals(pos, StringComparison.OrdinalIgnoreCase) &&
+                t.Translation.Trim().Equals(translation, StringComparison.OrdinalIgnoreCase));
+
+            if (!alreadyExists)
+            {
+                word.Translations.Add(new WordTranslation
+                {
+                    Id = Guid.NewGuid(),
+                    WordId = word.Id,
+                    PartOfSpeech = pos,
+                    Translation = translation
+                });
             }
         }
     }
